@@ -76,7 +76,7 @@ end
 @build = ""
 @name = ""
 
-@test = ARGV[0] || 'test_sample'
+@test = ARGV[0] || 'sample'
 @env = ARGV[1] || 'local'
 
 # Input capabilities
@@ -210,11 +210,24 @@ module Driver
     Util.val t
     t
   end
+
+  def Driver.post_element(using, value)
+    Util.info "POST /element"
+    t = @driver.find_element(using, value)
+    Util.val t
+    t
+  end
+
+  def Driver.post_implicit_timeout(value)
+    Util.info "POST /implicit_timeout"
+    @driver.manage.timeouts.implicit_wait = value
+    Util.val "Set"
+  end
 end
 
 #######################################################################################
 
-def test_sample
+def sample
   @build = "sample test"
   get_options
   run_test do
@@ -241,5 +254,39 @@ def ie_so_timeout
   end
 end
 
+def bsf
+  @build = "browser startup failures"
+  get_options
+  run_test do
+    sleep 5
+  end
+end
+
+def idle
+  @build = "idle timeout"
+  get_options
+  run_test do
+    sleep 100
+  end
+end
+
+def ff_pageload
+  @build = "firefox page load"
+  @url = "http://local-2.browserstack.com"
+  @local = true
+  @browser = "Firefox"
+  @browser_version = ARGV[2] || ""
+  @os = ARGV[3] || ""
+  @os_version = ARGV[4] || ""
+
+  run_test do
+    Driver.post_implicit_timeout 10
+    Driver.post_url(@url) rescue nil
+    Driver.post_url(@url) rescue nil
+    sleep 2
+    Driver.post_element(:id, "st_popup_acceptButton")
+    sleep 5
+  end
+end
 
 send(@test)
