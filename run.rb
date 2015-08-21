@@ -32,6 +32,10 @@ module Util
     puts "[#{Time.now.to_s}] #{str}".light_black
   end
 
+  def Util.val(str)
+    Util.log "Result: #{str}"
+  end
+
   def Util.done(str)
     puts "[#{Time.now.to_s}] #{str}".light_green
   end
@@ -72,8 +76,8 @@ end
 @build = ""
 @name = ""
 
-@env = ARGV[0] || 'local'
-@test = ARGV[1] || 'test_sample'
+@test = ARGV[0] || 'test_sample'
+@env = ARGV[1] || 'local'
 
 # Input capabilities
 def create_driver
@@ -174,10 +178,37 @@ module Driver
     @driver = driver
   end
 
-  def Driver.print_window_size
-    Util.info "Getting window size"
+  def Driver.get_window_size
+    Util.info "GET /window/:windowHandle/size"
     dims = @driver.manage.window.size
-    Util.log "Window size #{dims.width}x#{dims.height}"
+    Util.val "#{dims.width}x#{dims.height}"
+    dims
+  end
+
+  def Driver.post_url(url)
+    Util.info "POST /url"
+    @driver.get(url)
+    Util.val "Loaded"
+  end
+
+  def Driver.get_screenshot
+    Util.info "GET /screenshot"
+    @driver.save_screenshot("scr.png")
+    Util.val "Saved Screenshot"
+  end
+
+  def Driver.get_title
+    Util.info "GET /title"
+    t = @driver.title
+    Util.val t
+    t
+  end
+
+  def Driver.post_execute(script)
+    Util.info "POST /execute"
+    t = @driver.execute_script(script)
+    Util.val t
+    t
   end
 end
 
@@ -187,7 +218,26 @@ def test_sample
   @build = "sample test"
   get_options
   run_test do
-    Driver.print_window_size
+    Driver.get_window_size
+    Driver.post_url("http://google.com")
+    Driver.get_title
+    Driver.get_screenshot
+  end
+end
+
+def ie_so_timeout
+  @repeat = 10
+  @build = "ie so timeout"
+  @browser = "IE"
+  @browser_version = ARGV[2] || ""
+  @os = "Windows"
+  @os_version = ARGV[3] || ""
+  
+  run_test do 
+    Driver.post_url("http://maps.google.com")
+    @repeat.times do
+      Driver.post_execute "return (typeof jQuery === 'function')"
+    end
   end
 end
 
