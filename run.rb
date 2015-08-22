@@ -12,7 +12,7 @@ require 'selenium-webdriver'
 #@iphone = true
 #@real_mobile = true
 #@machine = false
-#@jar = "2.46.0"
+@jar = "2.47.1"
 #@resolution = "1280x1024"
 #@iedriver = "2.41"
 @url = "http://google.com"
@@ -234,6 +234,7 @@ def sample
     Driver.get_window_size
     Driver.post_url("http://google.com")
     Driver.get_title
+    Driver.post_element(:id, "st_popup_acceptButton")
     Driver.get_screenshot
   end
 end
@@ -265,8 +266,13 @@ end
 def idle
   @build = "idle timeout"
   get_options
+  @video = false
   run_test do
-    sleep 100
+    Driver.post_url("http://google.com")
+    Driver.get_title
+    Driver.post_url("http://google.com")
+    Driver.get_title
+    sleep 25
   end
 end
 
