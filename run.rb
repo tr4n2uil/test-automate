@@ -3,8 +3,8 @@ require 'json'
 require 'time'
 require 'colorize'
 require 'fileutils'
-#require 'browserstack-webdriver'
-require 'selenium-webdriver'
+require 'browserstack-webdriver'
+#require 'selenium-webdriver'
 
 #@local = true
 @debug = true
@@ -12,9 +12,9 @@ require 'selenium-webdriver'
 #@iphone = true
 #@real_mobile = true
 #@machine = false
-@jar = "2.47.1"
+#@jar = "2.44.0"
 #@resolution = "1280x1024"
-#@iedriver = "2.41"
+#@iedriver = "2.46"
 @url = "http://google.com"
 
 #######################################################################################
@@ -52,6 +52,9 @@ end
   'us' => '208.52.180.201',
   'usw' => '66.201.41.7',
   'eu' => '5.255.93.10',
+  'use2' => '208.52.180.206',
+  'usw2' => '66.201.41.251',
+  'eu2' => '5.255.93.14',
   'dev' => 'dev.bsstag.com:4444'
 }
 
@@ -61,10 +64,14 @@ end
   'wtf' => 'jinal1:b7wEZaJYyooH7FHJbu9e',
   'wtf2' => 'arpit1:dWp5HHH976vTTiHsHZfb',
   'local' => 'vibhajrajan1:SvnxogEy3yWtWzqCuWCD',
-  'stag' => 'vibhajrajan1:vKzgdNgq88171wUqRTan',
+  #'stag' => 'vibhajrajan1:vKzgdNgq88171wUqRTan',
+  'stag' => 'Jinalthakkar:DHp4supgP1ib3fob2shU',
   'us' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
   'usw' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
   'eu' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
+  'use2' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
+  'usw2' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
+  'eu2' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
   'dev' => 'vibhaj1:CopHrbmT9CJ2SKLwAUi8'
 }
 
@@ -73,8 +80,8 @@ end
 @platform = ""
 @version = ""
 @project = ""
-@build = ""
 @name = ""
+@jsEnabled = true
 
 @test = ARGV[0] || 'sample'
 @env = ARGV[1] || 'local'
@@ -92,7 +99,7 @@ def create_driver
     caps["version"] = @version
     caps[:version] = @version
     caps[:nativeEvents] = true
-    caps["javascriptEnabled"] = true
+    caps["javascriptEnabled"] = @jsEnabled
     
     caps["browserstack.bfcache"] = "0" if @bfcache
     caps["browser"] = @browser
@@ -110,8 +117,13 @@ def create_driver
     caps["browserstack.video"] = true if @video
     caps["browserstack.ie.driver"] = @iedriver if @iedriver
     caps["browserstack.safari.enablePopups"] = true if @safaripopup
+    caps["ie.forceCreateProcessApi"] = @tabproc if @tabproc
+    caps["ie.validateCookieDocumentType"] = @iecookie if @iecookie
     caps["resolution"] = @resolution if @resolution
     caps["browserstack.selenium_version"] = @jar if @jar
+    caps["browserstack.hosts"] = @hosts if @hosts
+    caps["ignoreProtectedModeSettings"] = @iepmode if @iepmode
+    caps["pageLoadStrategy"] = @pageLoadStrategy if @pageLoadStrategy
     caps[:name] = @name
     caps[:build] = @build
     caps[:project] = @project
@@ -132,8 +144,8 @@ def create_driver
 
     @driver = Selenium::WebDriver.for(:remote, 
       :url => "http://#{@cred}@#{@hub}/wd/hub", 
-      :desired_capabilities => caps, 
-      :http_client => client)
+      :desired_capabilities => caps)#, 
+      #:http_client => client)
 
     @my_session_id = @driver.instance_variable_get("@bridge").instance_variable_get("@session_id")
     Util.log "Session ID: #{@my_session_id}"
@@ -185,10 +197,23 @@ module Driver
     dims
   end
 
+  def Driver.post_maximize
+    Util.info "POST /window/maximize"
+    @driver.manage.window.maximize
+    Util.val "Done"
+  end
+
   def Driver.post_url(url)
     Util.info "POST /url"
     @driver.get(url)
     Util.val "Loaded"
+  end
+
+  def Driver.get_url
+    Util.info "GET /url"
+    t = @driver.current_url
+    Util.val t
+    t
   end
 
   def Driver.get_screenshot
@@ -223,12 +248,27 @@ module Driver
     @driver.manage.timeouts.implicit_wait = value
     Util.val "Set"
   end
+
+  def Driver.get_cookies
+    Util.info "GET /cookies"
+    cks = @driver.manage.all_cookies
+    cks.each { |cookie|
+      Util.val "#{cookie[:name]} => #{cookie[:value]}"
+    }
+    cks
+  end
+
+  def Driver.post_cookie(name, value, domain, expiry)
+    Util.info "POST /cookie"
+    @driver.manage.add_cookie(:name => name, :value => value, :domain => domain, :expiry => expiry)
+    Util.val "Done"
+  end
 end
 
 #######################################################################################
 
 def sample
-  @build = "sample test"
+  @build = @build || "sample test"
   get_options
   run_test do
     Driver.get_window_size
@@ -240,7 +280,7 @@ def sample
 end
 
 def ie_so_timeout
-  @repeat = 10
+  @repeat = 50
   @build = "ie so timeout"
   @browser = "IE"
   @browser_version = ARGV[2] || ""
@@ -257,6 +297,7 @@ end
 
 def bsf
   @build = "browser startup failures"
+
   get_options
   run_test do
     sleep 5
@@ -272,7 +313,7 @@ def idle
     Driver.get_title
     Driver.post_url("http://google.com")
     Driver.get_title
-    sleep 25
+    sleep 100
   end
 end
 
@@ -294,5 +335,154 @@ def ff_pageload
     sleep 5
   end
 end
+
+def safari_open_url
+  @build = "safari open url"
+  @local = true
+  @browser = "Safari"
+  @browser_version = ARGV[2] || ""
+  @os = "OS X"
+  @os_version = ARGV[3] || ""
+
+  run_test do
+    Driver.get_window_size
+    Driver.post_url("http://local-2.browserstack.com")
+    Driver.get_title
+  end
+end
+
+def ie_crash
+  @build = "ie crash"
+  #@tabproc = true
+  #@iecookie = true
+  @browser = "IE"
+  @browser_version = ARGV[2] || ""
+  @os = "Windows"
+  @os_version = ARGV[3] || ""
+
+  run_test do
+    Driver.get_window_size
+    Driver.post_url("http://google.com")
+    Driver.get_cookies
+    Driver.post_cookie("__bvr_s1d", "mock_s1d", "google.com", 1440445198)
+    Driver.get_cookies
+    sleep 10
+    Driver.get_title
+  end
+end
+
+def ie_stuck_key
+  @build = "ie stuck key"
+  @browser = "IE"
+  @browser_version = ARGV[2] || ""
+  @os = "Windows"
+  @os_version = ARGV[3] || ""
+
+  run_test do
+    Driver.get_window_size
+    Driver.post_url("http://google.com")
+    el = Driver.post_element(:name, "q")
+    el.send_keys "vibhaj@bs:642.!=?"
+    el = Driver.post_element(:name, "btnG")
+    el.click
+    Driver.get_title
+  end
+end
+
+def sidebar
+  @project = "Sample"
+  @build = "sidebar update"
+  sample
+end
+
+def ready_state
+  @build = @build || "ready state"
+  get_options
+  run_test do
+    Driver.get_window_size
+    Driver.post_url("https://twitter.com")
+    sleep 80
+    Driver.post_execute("return 1+1")
+    Driver.post_execute("return document.readyState == 'complete'")
+    Driver.post_execute("return document.readyState === 'complete'")
+    Driver.get_title
+    Driver.get_screenshot
+  end
+end
+
+def non_local
+  @build = "non local"
+  get_options
+  
+  run_test do
+    #Driver.get_window_size
+    Driver.post_url("http://google.com")
+    Driver.get_title
+    Driver.post_url("http://google.abc")
+    Driver.get_title
+    Driver.post_url("http://www.browserstack.com/admin/terminals")
+    Driver.get_title
+  end
+end
+
+def chrome_so_timeout
+  @build = "chrome so timeout"
+  @resolution = "1920x1080"
+  get_options
+  
+  run_test do
+    Driver.post_url("https://qa.shapeup.com/login/help/")
+    Driver.post_maximize
+    Driver.post_implicit_timeout 15
+    Driver.get_url
+    Driver.post_implicit_timeout 15
+    Driver.post_implicit_timeout 15
+    Driver.post_element(:class, "help-tabs")
+    Driver.get_url
+    Driver.post_url("https://qa.shapeup.com/reg/company_select/")
+    Driver.post_implicit_timeout 15
+    Driver.post_implicit_timeout 15
+    Driver.post_implicit_timeout 15
+    Driver.post_element(:id, "reg-form1")
+    Driver.post_element(:id, "header-wrapper")
+    Driver.post_element(:id, "footer-wrapper")
+    Driver.get_url
+    Driver.post_implicit_timeout 15
+    el = Driver.post_element(:css, ".reg-header span a")
+    el.click
+    Driver.post_element(:id, "login_form")
+    Driver.get_url
+    Driver.post_url("https://qa.shapeup.com/reg/company_select/")
+    Driver.post_element(:id, "organization")
+    
+    Driver.get_title
+  end
+end
+
+def twitter_so_timeout
+  @build = "twitter so timeout"
+  #@project = "Sample"
+  #@name = "LIGHT Test IE11 on Win 8.1"
+  @hosts = "199.59.148.71,twitter.com;199.59.148.71,www.twitter.com"
+  get_options
+  #@jsEnabled = true
+  #@iepmode = true
+  #@pageLoadStrategy = "unstable"
+  #@iedriver = "2.46"
+  #@jar = "2.47.1"
+  #@machine = "172.16.4.36"
+
+  run_test do
+    #@driver.manage.timeouts.page_load = 30
+    #@driver.manage.timeouts.script_timeout = 30
+    @driver.switch_to.window @driver.window_handles.last
+    Driver.post_maximize
+    Driver.post_url("https://twitter.com/")
+    #Driver.post_url("http://www.agame.com/games/action.html") rescue nil
+    Driver.post_execute "return document.readyState"
+    sleep 5
+  end
+end
+
 
 send(@test)
