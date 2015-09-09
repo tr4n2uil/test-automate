@@ -12,7 +12,7 @@ require 'browserstack-webdriver'
 #@iphone = true
 #@real_mobile = true
 #@machine = false
-#@jar = "2.44.0"
+@jar = "2.37.0"
 #@resolution = "1280x1024"
 #@iedriver = "2.46"
 @url = "http://google.com"
@@ -103,18 +103,18 @@ def create_driver
     
     caps["browserstack.bfcache"] = "0" if @bfcache
     caps["browser"] = @browser
-    caps["device"] = "iPhone 5S" if @iphone
+    caps["device"] = "iPhone 6" if @iphone
     caps["device"] = "Google Nexus 5" if @real_mobile
     caps["emulator"] = true if @iphone
     caps["realMobile"] = true if @real_mobile
-    caps["browser_version"] = @browser_version
-    caps["os"] = @os
-    caps["os_version"] = @os_version
+    caps["browser_version"] = @browser_version unless @iphone
+    caps["os"] = @os unless @iphone
+    caps["os_version"] = @os_version unless @iphone
 
     caps["browserstack.debug"] = true if @debug
     caps["browserstack.local"] = true if @local
     caps["browserstack.machine"] = @machine if @machine
-    caps["browserstack.video"] = true if @video
+    caps["browserstack.video"] = @video if @video #== false
     caps["browserstack.ie.driver"] = @iedriver if @iedriver
     caps["browserstack.safari.enablePopups"] = true if @safaripopup
     caps["ie.forceCreateProcessApi"] = @tabproc if @tabproc
@@ -124,6 +124,8 @@ def create_driver
     caps["browserstack.hosts"] = @hosts if @hosts
     caps["ignoreProtectedModeSettings"] = @iepmode if @iepmode
     caps["pageLoadStrategy"] = @pageLoadStrategy if @pageLoadStrategy
+    caps["requireWindowFocus"] = @requireWindowFocus if @requireWindowFocus
+    caps["browserstack.ie.disablePopups"] = @disablePopups if @disablePopups
     caps[:name] = @name
     caps[:build] = @build
     caps[:project] = @project
@@ -181,6 +183,7 @@ def get_options(index = 2)
   @browser_version = ARGV[index + 1] || ""
   @os = ARGV[index + 2] || ""
   @os_version = ARGV[index + 3] || ""
+  @machine = ARGV[index + 4] if ARGV[index + 4]
 end
 
 #######################################################################################
@@ -263,6 +266,12 @@ module Driver
     @driver.manage.add_cookie(:name => name, :value => value, :domain => domain, :expiry => expiry)
     Util.val "Done"
   end
+
+  def Driver.delete_cookies
+    Util.info "DELETE /cookies"
+    @driver.manage.delete_all_cookies
+    Util.log "Done"
+  end
 end
 
 #######################################################################################
@@ -271,7 +280,7 @@ def sample
   @build = @build || "sample test"
   get_options
   run_test do
-    Driver.get_window_size
+    #Driver.get_window_size
     Driver.post_url("http://google.com")
     Driver.get_title
     Driver.post_element(:id, "st_popup_acceptButton")
@@ -297,6 +306,8 @@ end
 
 def bsf
   @build = "browser startup failures"
+  #@machine = "172.16.4.106"
+  #@resolution = "1920x1080"
 
   get_options
   run_test do
@@ -484,5 +495,94 @@ def twitter_so_timeout
   end
 end
 
+def basic_auth
+  @build = "basic auth"
+  get_options
+  
+  run_test do
+    #@driver.manage.timeouts.page_load = 30
+    Driver.post_maximize
+    Driver.post_url("http://enigmary%5Ctestuser01:Enigmatry1@twoclickstest.test.enigmatry.com") rescue nil
+    Driver.post_execute "return document.readyState"
+    sleep 5
+  end
+end
+
+def chrome_url
+  @build = "chrome url"
+  get_options
+  
+  run_test do
+    #@driver.manage.timeouts.page_load = 30
+    Driver.post_maximize
+    Driver.post_url("https://signup.devstage4.weightwatchers.com/signup/promo.aspx?channelId=24&sponsorId=28575&promotionId=65398") rescue nil
+    Driver.post_execute "return document.readyState"
+    sleep 5
+  end
+end
+
+def ie_open_url
+  @build = "ie open url"
+  @bfcache = true
+  @requireWindowFocus = true
+  @disablePopups = true
+  @hosts = "127.0.0.1,pcm1.map.pulsemgr.com"
+  get_options
+  
+  run_test do
+    @driver.manage.timeouts.implicit_wait = 10
+    Driver.post_url("http://uat.radiotimes.com")
+    Driver.get_cookies
+    Driver.delete_cookies
+    Driver.post_maximize
+    Driver.post_cookie("removeoop", "true", "uat.radiotimes.com", 1441772909)
+    Driver.post_url "http://uat.radiotimes.com/tv/tv-listings"
+    sleep 5
+  end
+end
+
+def video_release
+  @build = "video release"
+  @video = false
+  sample
+end
+
+def node_hub
+  @build = "node hub"
+  get_options
+  
+  run_test do
+    #@driver.manage.timeouts.implicit_wait = 10
+    Driver.post_url("http://astartis.clinpal.net:80/clinpal?preventAutoLogin=true")
+    sleep 5
+  end
+end
+
+def open_url_issue
+  @build = "open url issue"
+  get_options
+  @hosts = "127.0.0.1,pcm1.map.pulsemgr.com"
+  
+  run_test do
+    @driver.manage.timeouts.implicit_wait = 10
+    #Driver.post_url("http://astartis.clinpal.net:80/clinpal?preventAutoLogin=true")
+    #Driver.post_url "http://www.gamesgames.com"
+    Driver.post_url "http://uat.radiotimes.com"
+    sleep 5
+  end
+end
+
+def emulator_screenshots
+  @build = "emulator screenshots"
+  @browser = "iPhone"
+  @iphone = true
+  
+  run_test do
+    #@driver.manage.timeouts.implicit_wait = 10
+    Driver.post_url "https://www.blockhunt.com/latest2/listing.html"
+    Driver.get_screenshot
+    sleep 5
+  end
+end
 
 send(@test)
