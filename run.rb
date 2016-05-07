@@ -4,10 +4,12 @@ require 'time'
 require 'colorize'
 require 'fileutils'
 require 'browserstack-webdriver'
-#require 'selenium-webdriver'
+# require 'selenium-webdriver'
 require 'selenium'
-#require 'appium_lib'
+require 'appium_lib'
 #require 'touch_action'
+require 'parallel'
+require 'rest_client'
 
 # @local = true
 @debug = true
@@ -21,17 +23,38 @@ require 'selenium'
 # @jar = "2.42.2"
 # @jar = "2.43.1"
 # @jar = "2.44.0"
-#@jar = "2.45.0"
+# @jar = "2.45.0"
  # @jar = "2.46.0"
 # @jar = "2.47.1"
 # @jar  = "2.48.2"
-#@resolution = "2048x1536"
-#@iedriver = "2.44"
+# @jar = "2.49.0"
+# @jar = "2.50.0"
+# @jar = "2.51.0"
+# @jar = "2.52.0"
+# @jar = "2.53.0"
+# @resolution = "1440x900"
+# @resolution = "1920x1080"
+# @iedriver = "2.52"
 @url = "http://google.com"
-@nativeEvents = true
+@nativeEvents = false
+@real_mobile = false
 #@noQueue = true
 
 #######################################################################################
+
+class Logger
+  def initialize(target)
+    @target = target
+  end
+
+  def method_missing(method, *args, &block)
+    t = Time.now.to_f
+    Util.info "#{method.capitalize} #{args.inspect}"
+    ret = @target.send(method, *args, &block)
+    Util.val "#{Time.now.to_f - t} #{method.capitalize} #{ret || 'Done'}"
+    ret
+  end
+end
 
 module Selenium
   module WebDriver
@@ -61,23 +84,85 @@ end
 
 module Util
   def Util.log(str)
-    puts "[#{Time.now.to_s}] #{str}"
+    puts "[#{Process.pid}] [#{Time.now.to_s}] #{str}"
   end
 
   def Util.error(str)
-    puts "[#{Time.now.to_s}] #{str}".red
+    puts "[#{Process.pid}] [#{Time.now.to_s}] #{str}".red
   end
 
   def Util.info(str)
-    puts "[#{Time.now.to_s}] #{str}".light_black
+    puts "[#{Process.pid}] [#{Time.now.to_s}] #{str}".light_black
   end
 
   def Util.val(str)
-    Util.log "Result: #{str}"
+    Util.log "#{str}"
   end
 
   def Util.done(str)
-    puts "[#{Time.now.to_s}] #{str}".light_green
+    puts "[#{Process.pid}] [#{Time.now.to_s}] #{str}".light_green
+  end
+end
+
+module Driver
+  def Driver.init(driver)
+    @driver = driver
+  end
+
+  def Driver.get_window_size
+    @driver.manage.window.size
+  end
+
+  def Driver.set_window_size(w, h)
+    @driver.manage.window.resize_to(w, h)
+  end
+
+  def Driver.post_maximize
+    @driver.manage.window.maximize
+  end
+
+  def Driver.post_url(url)
+    @driver.get(url)
+  end
+
+  def Driver.get_url
+    @driver.current_url
+  end
+
+  def Driver.get_screenshot
+    @driver.save_screenshot("scr.png")
+  end
+
+  def Driver.get_title
+    @driver.title
+  end
+
+  def Driver.post_execute(script)
+    @driver.execute_script(script)
+  end
+
+  def Driver.post_element(using, value)
+    @driver.find_element(using, value)
+  end
+
+  def Driver.active_element
+    @driver.switch_to.active_element
+  end
+
+  def Driver.post_implicit_timeout(value)
+    @driver.manage.timeouts.implicit_wait = value
+  end
+
+  def Driver.get_cookies
+    @driver.manage.all_cookies
+  end
+
+  def Driver.post_cookie(name, value, domain, expiry)
+    @driver.manage.add_cookie(:name => name, :value => value, :domain => domain, :expiry => expiry)
+  end
+
+  def Driver.delete_cookies
+    @driver.manage.delete_all_cookies
   end
 end
 
@@ -85,75 +170,115 @@ end
 
 @hubs = {
   'ci' => 'ci.bsstag.com:4444',
-  'uci' => 'urgentci.browserstack.com:4444',
+  #'uci' => 'urgentci.browserstack.com:4444',
   'wtf' => 'wtf.browserstack.com:4444',
   'wtf2' => 'wtf2hub.bsstag.com:8080',
   'local' => 'local.browserstack.com:8080',
-  'local80' => 'local.browserstack.com',
-  'stag' => 'fuhub.bsstag.com',
+  'local4444' => 'local.browserstack.com:4444',
+  'stag' => 'fuhub.bsstag.com:8080',
   'fu' => 'fu.bsstag.com:8080',
+  'uci' => 'urgentci.bsstag.com:4444',
   'stag4444' => 'fuhub.bsstag.com:4444',
+  'dev' => 'dev.bsstag.com:4444',
+  'dev2' => 'dev2.bsstag.com:4444',
+  'sys' => '127.0.0.1:8080',
+  'proxy' => "local.browserstack.com:5050",
+
   'us' => '208.52.180.201',
   'us4444' => '208.52.180.201:4444',
+  'use1' => '208.52.180.206:4444',
+  'use2' => '208.52.180.203:4444',
+  'use3' => '208.52.145.50:4444',
+  
   'usw' => '66.201.41.7',
-  'eu' => '5.255.93.10',
-  'eu8080' => '5.255.93.10:8080',
-  'use2' => '208.52.180.203:8080',
-  'use1' => '208.52.180.206:8080',
+  'usw4444' => '66.201.41.7:4444',
   'usw1' => '66.201.41.251',
-  'usw8080' => '66.201.41.251:8080',
-  'eu1' => '5.255.93.14:8080',
-  'eu2' => '5.255.93.9:8080',
-  'dev' => 'dev.bsstag.com:4444',
-  'sys' => '127.0.0.1:8080',
-  'proxy' => "local.browserstack.com:5050"
+  'usw18080' => '66.201.41.251:8080',
+  'usw2' => '66.201.41.252:4444',
+  'usw3' => '66.201.41.191:4444',
+
+  'cdn' => 'hub-cdn.browserstack.com:80',
+  'cloud' => 'hub-cloud.browserstack.com:80',
+  'ceu' => 'hub-cloud-eu.browserstack.com:80',
+  'localprod' => 'local.browserstack.com:8080',
+  
+  'eu' => '5.255.93.10',
+  'eu4444' => '5.255.93.10:4444',
+  'eu1' => '5.255.93.14:4444',
+  'eu2' => '5.255.93.9:4444',
+
+  'opendns' => '66.201.41.7:80'
 }
 
 @creds = {
-  'ci' => 'vibhaj1:jtk57bymWsqNwUHqfJHf',
-  'uci' => 'abcd1:RWGtnZCkoSAV4W412wEQ',
+  #'ci' => 'vibhaj1:jtk57bymWsqNwUHqfJHf',
+  'ci' => 'jinal1:cqp9tMAzySqRxx3zPK4q',
+  #'uci' => 'abcd1:RWGtnZCkoSAV4W412wEQ',
   #'wtf' => 'vibhajr1:W43sBHt3eEGaJzXzqX6Y',
   'wtf' => 'jinal1:b7wEZaJYyooH7FHJbu9e',
-  'wtf2' => 'arpit1:dWp5HHH976vTTiHsHZfb',
+  #'wtf2' => 'arpit1:dWp5HHH976vTTiHsHZfb',
+  'wtf2' => 'jinal1:tFp7ztrRgaWqYYZk16g3',
   'local' => 'vibhajrajan1:SvnxogEy3yWtWzqCuWCD',
-  'local80' => 'vibhajrajan1:SvnxogEy3yWtWzqCuWCD',
+  'local4444' => 'vibhajrajan1:SvnxogEy3yWtWzqCuWCD',
   #'stag' => 'vibhajrajan1:vKzgdNgq88171wUqRTan',
-  'stag' => 'arpitpatel1:5TYHwqVRVya7Efq7sL23',
+  #'stag' => 'arpitpatel1:5TYHwqVRVya7Efq7sL23',
+  'stag' => 'Jinalthakkar:DHp4supgP1ib3fob2shU',
   'stag4444' => 'arpitpatel1:5TYHwqVRVya7Efq7sL23',
+  'uci' => 'jinal1:sxXepVAhMmntv47S7xAW',
   'fu' => 'arpitpatel1:5TYHwqVRVya7Efq7sL23',
   'us' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
   'us4444' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
   'usw' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
   'eu' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
   'eu8080' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
+  'eu4444' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
   'use2' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
+  'use3' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
   'use1' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
   'usw1' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
-  'usw8080' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
+  'usw18080' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
+  'usw2' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
+  'usw4444' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
+  'usw3' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
   'eu1' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
   'eu2' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
   'dev' => 'vibhaj1:CopHrbmT9CJ2SKLwAUi8',
+  'dev2' => 'vibhaj1:CopHrbmT9CJ2SKLwAUi8',
   'sys' => 'abc:123',
-  'proxy' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso'
+  'proxy' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
+  'cdn' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
+  'cloud' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
+  'ceu' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
+  'localprod' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
+
+  'opendns' => 'nickyg2:ViZHydZt2uhFVJeGJTyE'
 }
+
+@test = ARGV[0] || 'sample'
+@env = ARGV[1] || 'local'
+@parallel = (ENV["N"] || 1).to_i
+@stypi = (ENV["S"] || 1).to_i
 
 @client_timeout = 300
 @browserName = ""
 @platform = ""
 @version = ""
-@project = "vibhaj"
+@project = "vibhaj [hub-#{@env}.may.2016]"
 @name = ""
-@jsEnabled = true
+# @jsEnabled = true
 
-@test = ARGV[0] || 'sample'
-@env = ARGV[1] || 'local'
+# @machine = "185.44.128.181"
 
 profile = Selenium::WebDriver::Firefox::Profile.new
-profile['browser.download.dir'] = "/tmp/webdriver-downloads"
 profile["browser.startup.homepage"] = "about:blank"
 profile["startup.homepage_welcome_url"] = "about:blank"
 profile["startup.homepage_welcome_url.additional"] = "about:blank"
 profile["browser.usedOnWindows10.introURL"] = "about:blank"
+profile['browser.cache.disk.enable'] = false;
+profile['browser.cache.memory.enable'] = false;
+profile['browser.cache.offline.enable'] = false;
+profile['network.http.use-cache'] = false;
+profile['network.proxy.socks_remote_dns'] = true;
 
 # profile['browser.download.dir'] = "/tmp/webdriver-downloads"
 # profile['browser.download.folderList'] = 2
@@ -181,6 +306,7 @@ def create_driver(appium = false)
     caps[:nativeEvents] = @nativeEvents
     caps[:native_events] = @nativeEvents
     caps["javascriptEnabled"] = @jsEnabled
+    # caps["browserstack.asyncStop"] = true
     
     caps["browserstack.bfcache"] = "0" if @bfcache
     caps["browser"] = @browser
@@ -206,15 +332,29 @@ def create_driver(appium = false)
     caps["browserstack.hosts"] = @hosts if @hosts
     caps["ignoreProtectedModeSettings"] = @iepmode if @iepmode
     caps["pageLoadStrategy"] = @pageLoadStrategy if @pageLoadStrategy
-    caps["requireWindowFocus"] = @requireWindowFocus if @requireWindowFocus
+    #caps["requireWindowFocus"] = @requireWindowFocus if @requireWindowFocus
     caps["enablePersistentHover"] = @enablePersistentHover
     caps["browserstack.ie.disablePopups"] = @disablePopups if @disablePopups
     caps["deviceOrientation"] = @orientation if @orientation
+    # caps["marionette"] = true
+    # caps["os"] = "OS X"
+    # caps["loggingPrefs"] = { :browser => "ALL" }
+    # caps["acceptSslCert"] = caps["acceptSslCerts"] = true
     #caps["browserstack.safari.driver"] = "2.45"
     #caps["applicationCacheEnabled"] = "true"
     #caps["browserstack.localIdentifier"] = "bridgeu"
     #caps["chromeOptions"] = {'args' => "--no-args"}
+    # caps["chromeOptions"] = {
+    #   "browser" => {
+    #     "show_update_promotion_info_bar" => false,
+    #     "check_default_browser" => false
+    #   },
+    #   "profile" => {
+    #     "password_manager_enabled" => false
+    #   }
+    # }
     #caps["initialBrowserUrl"] = "about:blank"
+    # caps["browserstack.autoWait"] = false
     caps[:name] = @name
     caps[:build] = @build
     caps[:project] = @project
@@ -226,7 +366,8 @@ def create_driver(appium = false)
     if ENV["FBINARY"] != nil
       caps["firefox_binary"] = ENV["FBINARY"]
     end
-    Util.info "Starting Driver #{@hub} #{caps.inspect}"
+    start = Time.now.to_f
+    Util.info "Starting Driver #{@hub} #{caps.inspect}" if @test != "chrome_ext"
 
     unless appium
       client = Selenium::WebDriver::Remote::Http::Default.new
@@ -269,7 +410,8 @@ def create_driver(appium = false)
     end
 
     @my_session_id = @driver.instance_variable_get("@bridge").instance_variable_get("@session_id")
-    Util.log "Session ID: #{@my_session_id}"
+    Util.log "#{Time.now.to_f - start} Session ID: #{@my_session_id}"
+    @driver = Logger.new(@driver)
   rescue Exception => e
     Util.error "#{e.message}"
     Process.exit
@@ -277,9 +419,9 @@ def create_driver(appium = false)
 end
 
 def quit_driver
-  Util.info "Quitting"
+  #start = Time.now.to_f
   @driver.quit
-  Util.log "Driver Quit"
+  #Util.log "Quit time #{Time.now.to_f - start}"
 end
 
 def run_test(appium = false)
@@ -307,121 +449,43 @@ end
 
 #######################################################################################
 
-module Driver
-  def Driver.init(driver)
-    @driver = driver
-  end
-
-  def Driver.get_window_size
-    Util.info "GET /window/:windowHandle/size"
-    dims = @driver.manage.window.size
-    Util.val "#{dims.width}x#{dims.height}"
-    dims
-  end
-
-  def Driver.set_window_size(w, h)
-    Util.info "POST /window/:windowHandle/size"
-    dims = @driver.manage.window.resize_to(w, h)
-    Util.val "Done"
-    dims
-  end
-
-  def Driver.post_maximize
-    Util.info "POST /window/maximize"
-    @driver.manage.window.maximize
-    Util.val "Done"
-  end
-
-  def Driver.post_url(url)
-    Util.info "POST /url"
-    @driver.get(url)
-    Util.val "Loaded"
-  end
-
-  def Driver.get_url
-    Util.info "GET /url"
-    t = @driver.current_url
-    Util.val t
-    t
-  end
-
-  def Driver.get_screenshot
-    Util.info "GET /screenshot"
-    @driver.save_screenshot("scr.png")
-    Util.val "Saved Screenshot"
-  end
-
-  def Driver.get_title
-    Util.info "GET /title"
-    t = @driver.title
-    Util.val t
-    t
-  end
-
-  def Driver.post_execute(script)
-    Util.info "POST /execute"
-    t = @driver.execute_script(script)
-    Util.val t
-    t
-  end
-
-  def Driver.post_element(using, value)
-    Util.info "POST /element"
-    t = @driver.find_element(using, value)
-    Util.val t
-    t
-  end
-
-  def Driver.active_element
-    Util.info "POST /active"
-    t = @driver.switch_to.active_element
-    Util.val "Done"
-    t
-  end
-
-  def Driver.post_implicit_timeout(value)
-    Util.info "POST /implicit_timeout"
-    @driver.manage.timeouts.implicit_wait = value
-    Util.val "Set"
-  end
-
-  def Driver.get_cookies
-    Util.info "GET /cookies"
-    cks = @driver.manage.all_cookies
-    cks.each { |cookie|
-      Util.val "#{cookie[:name]} => #{cookie[:value]}"
-    }
-    cks
-  end
-
-  def Driver.post_cookie(name, value, domain, expiry)
-    Util.info "POST /cookie"
-    @driver.manage.add_cookie(:name => name, :value => value, :domain => domain, :expiry => expiry)
-    Util.val "Done"
-  end
-
-  def Driver.delete_cookies
-    Util.info "DELETE /cookies"
-    @driver.manage.delete_all_cookies
-    Util.log "Done"
-  end
-end
-
-#######################################################################################
-
 def sample
   @build = @build || "sample test"
   get_options
+  #@caps["unexpectedAlertbehaviour"] = "accept"
   run_test do
+    # Driver.post_implicit_timeout 10
     #Driver.get_window_size
+    Driver.post_url "http://whatsmybrowser.com"
+    Driver.get_screenshot
+
     Driver.post_url("http://google.com")
+    #Driver.post_url "https://callcentre.nvminternal.net/callcentre/contacthub/login"
     Driver.get_title
+    #sleep 10
+    Driver.post_execute "return document.readyState"
+    @driver.find_elements :name, "q"
     el = Driver.post_element :name, "q"
+    el.location
+    @driver.manage.all_cookies
     el.send_keys "browserstack"
     el1 = Driver.post_element :name, "btnG"
     el1.click
+    # Driver.post_execute "document.getElementByName('btnG').click();"
+    el1 = Driver.post_element :name, "btnG"
+    Driver.post_url "about:blank"
+    #sleep 10
+    Driver.post_element(:id, "st_popup_acceptButton") rescue nil
+    @driver.find_elements(:id, "st_popup_acceptButton")
+
     Driver.get_screenshot
     #sleep 40
+    Driver.post_url "http://whatsmybrowser.com"
+    @driver.page_source
+    @driver.page_source
+    @driver.page_source
+    @driver.page_source
+    # @driver.page_source
     Driver.post_element(:id, "st_popup_acceptButton")
     #Driver.post_element(:css, ".span.ui-messages-info-detail")
     Driver.get_screenshot
@@ -468,14 +532,17 @@ def bsf
 
   get_options
   run_test do
-    sleep 5
+    #Driver.post_url "https://applause.firebaseapp.com/"
+    #Driver.get_title
+    #Driver.get_screenshot
+    sleep 1
   end
 end
 
 def idle
-  @build = "idle timeout"
+  @build = "" # "idle timeout"
   get_options
-  @video = false
+  
   run_test do
     Driver.post_url("http://google.com")
     Driver.get_title
@@ -578,16 +645,16 @@ def ready_state
   end
 end
 
-def non_local
-  @build = "non local"
+def ff_so_timeout
+  @build = "ff_so_timeout"
   get_options
   
   run_test do
     #Driver.get_window_size
-    Driver.post_url("http://google.com")
-    Driver.get_title
+    # Driver.post_url("http://google.com")
+    # Driver.get_title
     Driver.post_url("http://google.abc")
-    Driver.get_title
+    # Driver.get_title
     Driver.post_url("http://www.browserstack.com/admin/terminals")
     Driver.get_title
   end
@@ -732,7 +799,7 @@ end
 def emulator_screenshots
   @build = "emulator screenshots"
   @browser = "android"
-  @device = "Samsung Galaxy S5"
+  @device = "Samsung Galaxy S4"
   @platform = "ANDROID"
   
   run_test do
@@ -839,14 +906,31 @@ def local_check
   get_options
   run_test do
     #Driver.get_window_size
+    #Driver.post_url("http://google.abc")
+    #Driver.post_url("https://local.browserstack.com")
+    #Driver.get_title
     Driver.post_url("http://local.browserstack.com:3000")
+    # Driver.get_url
+    # Driver.get_title
+    # Driver.post_url("http://localhost:4567")
+    Driver.get_url
     Driver.get_title
-    Driver.post_url("http://localhost:3000")
-    Driver.get_title
-    Driver.post_element(:id, "st_popup_acceptButton")
+    # Driver.post_url("http://localhost")
+    # Driver.get_url
+    # Driver.get_title
+    # Driver.post_url("http://127.0.0.1")
+    # Driver.get_url
+    # Driver.get_title
+    # Driver.post_url("http://127.0.0.1:8082/hub.js")
+    # Driver.get_url
+    # Driver.get_title
+    # 50.times do
+    #   sleep 10
+    #   Driver.get_title
+    # end
+    #Driver.get_title
+    #Driver.post_element(:id, "st_popup_acceptButton")
     Driver.get_screenshot
-    sleep 50
-    Driver.get_title
   end
 end
 
@@ -1366,7 +1450,7 @@ def stypi
     Driver.post_url("http://google.com")
     Driver.get_title
     el = Driver.post_element :name, "q"
-    500.times do
+    @stypi.times do
       el.send_keys "b"
     end
     Driver.get_screenshot
@@ -1377,15 +1461,18 @@ end
 def self_signed_cert
   @build = "self signed cert"
   @caps["acceptSslCerts"] = true
-  @local = true
+  #@local = true
   get_options
   
   run_test do
     Driver.post_url("https://test.buggycoder.com")
     Driver.get_title
-    Driver.post_url("https://localtesting.browserstack.com")
+    #Driver.post_url("https://localtesting.browserstack.com")
+    #Driver.get_title
+    Driver.post_url "https://teas:M%40lmberg@tst.teas.sanomapro.fi/authentication/oauth/test"
     Driver.get_title
-    #sleep 5
+    sleep 5
+    Driver.get_screenshot
   end
 end
 
@@ -1484,10 +1571,11 @@ def safari_send_keys
   end
 end
 
-def win10_bfcache
-  @build = @build || "win10 bfcache"
-  @bfcache = true
-  #@caps["browserstack.ie.noFlash"] = true
+def ie_bfcache
+  @build = @build || "ie bfcache"
+  #@bfcache = true
+  #@caps["browserstack.ie.noFlash"] = false
+  @caps["acceptSslCerts"] = true
   get_options
 
   run_test do
@@ -1702,12 +1790,14 @@ def file_upload
     end
     Driver.post_url "http://www.fileconvoy.com"
     el = Driver.post_element :id, "upfile_0"
-    el.send_keys "/Users/vibhaj/Downloads/vibhaj.log"
+    #el.send_keys "/Users/vibhaj/Downloads/vibhaj.log"
+    #el.send_keys "/Users/vibhaj/Downloads/mongo_crash.log"
+    el.send_keys "/Users/vibhaj/Downloads/dlls.zip"
     el1 = Driver.post_element :id, "readTermsOfUse"
     el1.click
     el2 = Driver.post_element :name, "upload_button"
     el2.submit
-    sleep 15
+    sleep 1
     Driver.get_title
     Driver.get_screenshot
   end
@@ -1816,4 +1906,768 @@ def split_value
   end
 end
 
-send(@test)
+def non_local
+  @build = @build || "non local"
+  get_options
+  run_test do
+    #Driver.get_window_size
+    Driver.post_url("http://durocastadmin:starSh1ne@shadow.vadio.com/s/js/main_widget-c-min.js?v=14964021429631569785")
+    Driver.post_url "http://durocastadmin:starSh1ne@sstatic.vadio.com"
+    Driver.get_title
+    Driver.get_screenshot
+    Driver.post_element(:id, "st_popup_acceptButton")
+    Driver.get_screenshot
+  end
+end
+
+def dns_error
+  @build = @build || "dns error"
+  get_options
+  run_test do
+    Driver.post_url("http://google.abc") rescue nil
+    Driver.get_title
+    Driver.get_screenshot
+  end
+end
+
+def xml_error
+  @build = @build || "xml error"
+  get_options
+  run_test do
+    Driver.post_url "http://qa:arineten@eshop-int.asus.com/sitemap.xml"
+    Driver.get_title
+    Driver.get_screenshot
+  end
+end
+
+def close_window
+  @build = @build || "close window"
+  get_options
+  run_test do
+    Driver.post_url "http://xhamster.com"
+    Driver.get_title
+    Driver.post_execute "document.cookie = 'ts_popunder=;expires=Thu, 01 Jan 1970 00:00:01 GMT;';"
+    Driver.post_execute "document.cookie = 'p_js_dev=541535;';"
+    @driver.navigate.refresh
+    el = Driver.post_element :css, "#supportAds a"
+    el.click
+
+    a = @driver.window_handles
+    puts a
+
+    @driver.switch_to.window a[0] rescue nil
+    @driver.close
+
+    Driver.get_screenshot
+  end
+end
+
+def ie_start_error
+  @build = @build || "ie start error"
+  get_options
+  @caps["requireWindowFocus"] = "1"
+
+  run_test do
+    Driver.post_url "http://google.com"
+    Driver.get_title
+    Driver.get_screenshot
+  end
+end
+
+def ie_crash
+  @build = @build || "ie crash"
+  get_options
+  @jar = "2.48.2"
+  @nativeEvents = false
+  @iedriver = "2.48"
+  @caps["browserstack.ie.noFlash"] = false;
+  #@caps["resolution"] = "1280x1024"
+
+  run_test do
+    Driver.set_window_size 1280, 900
+    Driver.post_url "https://integration-peopleask.qualif.novapost.net/manager/login"
+    el0 = Driver.post_element :css, "body#manager__login"
+    el1 = Driver.post_element :css, "input[name=email]"
+    el1.send_keys "admin@integration.peopledoc.qualif.novapost.net"
+    el2 = Driver.post_element :css, "input[name=password]"
+    el2.send_keys "Azeaze1234"
+    el3 = Driver.post_element :css, "button[type=submit]"
+    el3.click
+    el4 = Driver.post_element :css, "body#manager__dashboard"
+    Driver.post_url "https://integration-peopleask.qualif.novapost.net/manager/processes/create"
+    el5 = Driver.post_element :css, "body"
+    el6 = Driver.post_element :css, "input#id_name"
+    el6.send_keys "Monprocess2016-01-11T16:02:02.861Z"
+    el7 = Driver.post_element :css, ".selectize-input > input"
+    puts el7.displayed?
+    el7 = Driver.post_element :css, ".selectize-input > input"
+    el7.send_keys "pierre"
+    el8 = Driver.post_element :css, "[data-value]" rescue nil
+    el8 = Driver.post_element :css, "[data-value]"
+    el8 = Driver.post_element :css, "[data-value]"
+    el8.click
+
+    Driver.get_title
+    Driver.get_screenshot
+  end
+end
+
+def chrome_options
+  @build = @build || "chrome options"
+  get_options
+  @caps["rotatable"] = false
+  @caps["cssSelectorsEnabled"] = false
+  @caps["javascriptEnabled"] = false
+  @caps["acceptSslCerts"] = true
+  @caps["acceptSslCert"] = true
+  @caps["takesScreenshot"] = true
+  @caps["chromeOptions"] = {'args' => ["--ignore-certificate-errors"]}
+  
+  run_test do
+    Driver.post_url "http://google.com"
+    Driver.get_title
+    Driver.get_screenshot
+  end
+end
+
+def chrome_ext
+  @build = @build || "chrome extensions"
+  get_options
+  @caps["rotatable"] = false
+  @caps["cssSelectorsEnabled"] = false
+  @caps["javascriptEnabled"] = false
+  @caps["acceptSslCerts"] = true
+  @caps["acceptSslCert"] = true
+  @caps["takesScreenshot"] = true
+  @caps["chromeOptions"] = {
+    'args' => ["--ignore-certificate-errors"],
+    'extensions' => [File.read("chrome.ext")]
+  }
+  
+  run_test do
+    Driver.post_url "http://google.com"
+    Driver.get_title
+    Driver.get_screenshot
+  end
+end
+
+def find_elements
+  @build = @build || "find elements"
+  get_options
+  
+  run_test do
+    Driver.post_url "http://stormy-beyond-9729.herokuapp.com"
+    @driver.find_elements :css, "ul li"
+    Driver.get_title
+    Driver.get_screenshot
+  end
+end
+
+def sample_no_build
+  @build = "test build"
+  @name = "sample no build 1"
+  get_options
+  
+  run_test do
+    Driver.post_url "http://google.com"
+    @driver.find_elements :css, "ul li"
+    Driver.get_title
+    Driver.get_screenshot
+  end
+end
+
+def real_appium
+  @build = "real appium"
+  get_options
+  
+  run_test do
+    Driver.post_url "http://google.com"
+    @driver.find_elements :css, "ul li"
+    Driver.get_title
+    Driver.get_screenshot
+  end
+end
+
+def safari
+  @jar = "2.52.0"
+  @build = "safari check"
+
+  sample
+end
+
+def pageload_force
+  @build = "page load force"
+  @local = true
+  get_options
+  
+  run_test do
+    @stypi.times do
+      Driver.post_url "http://techcrunch.com/"
+      Driver.get_title
+    end
+    #Driver.get_screenshot
+  end
+end
+
+def pageload_public
+  @build = "page load public"
+  # @local = true
+  #@caps["browserstack.localIdentifier"] = "abc"
+  # @caps["chromeOptions"] = {'args' => ["--disable-application-cache", "--media-cache-size=1", "--disk-cache-size=1", ""]}
+  @caps["chromeOptions"] = {'args' => ["start-maximized", "disable-webgl", "blacklist-webgl", "blacklist-accelerated-compositing", "disable-accelerated-2d-canvas", "disable-accelerated-compositing", "disable-accelerated-layers", "disable-accelerated-plugins", "disable-accelerated-video", "disable-accelerated-video-decode", "disable-gpu", "disable-infobars", "test-type"]}
+  get_options
+  
+  run_test do
+    Driver.post_url "http://desk.buggycoder.com/test/stress-500.html"
+    Driver.get_title
+    # Driver.get_screenshot
+  end
+end
+
+def pageload
+  @build = "page load"
+  # @local = true
+  #@caps["browserstack.localIdentifier"] = "abc"
+  @caps["chromeOptions"] = {'args' => ["--disable-application-cache", "--media-cache-size=1", "--disk-cache-size=1", "--proxy-server=socks5://localhost:5050"]}
+  get_options
+  
+  run_test do
+    Driver.post_url "http://localhost:8888"
+    Driver.get_title
+    # Driver.get_screenshot
+  end
+end
+
+def pageload_hub
+  @build = "page load hub"
+  @local = true
+  @caps["browserstack.localIdentifier"] = "abc"
+  # "--proxy-server=socks5://localhost:5050", 
+  # @caps["chromeOptions"] = {'args' => ["--proxy-server=socks5://50.16.78.110:443"]}
+  get_options
+  
+  run_test do
+    Driver.post_url "http://localhost:8080/wd/pageload"
+    # Driver.post_url "http://localhost/test/stress-500.html"
+    # Driver.post_url "http://local.bsstag.com:3000/"
+    Driver.get_title
+    # Driver.get_screenshot
+  end
+end
+
+def pageload_do_public
+  @build = "page load do public #{@parallel}"
+  # @local = true
+  # "--proxy-server=socks5://localhost:5050", 
+  # @caps["chromeOptions"] = {'args' => ["--proxy-server=socks5://50.16.78.110:443"]}
+  get_options
+  
+  run_test do
+    #Driver.post_url "http://localhost:8080/wd/pageload"
+    # Driver.post_url "http://50.16.78.110:443/test/stress-500.html"
+    # Driver.post_url "http://52.87.241.70:443/test/stress-500.html"
+    Driver.post_url "http://52.87.241.70:80/"
+    # 52.87.241.70
+    # Driver.post_url "http://50.16.78.110:80/test/stress-500.html"
+    # Driver.post_url "http://128.199.133.92/test/stress-500.html"
+    # Driver.post_url "http://128.199.133.92:443/test/stress-500.html"
+    # Driver.post_url "http://50.16.78.110:443/wd/hub/pageload"
+    # Driver.get_title
+    if @driver.title != "green"
+      RestClient.put "https://vibhajrajan1:isx1GLKoDPyxvJwMZBso@www.browserstack.com/automate/sessions/#{@my_session_id}.json", {"status"=>"error", "reason"=>""}, {:content_type => :json}
+    end
+    # Driver.get_screenshot
+  end
+end
+
+def pageload_do
+  @build = "page load do #{@parallel}"
+  # @local = true
+  # "--proxy-server=socks5://localhost:5050", 
+  # @caps["chromeOptions"] = {'args' => ["--proxy-server=socks5://50.16.78.110:443"]}
+  # @caps["chromeOptions"] = {'args' => ["--proxy-server=socks5://52.87.241.70:443"]}
+  # @caps["proxy"] = {
+  #   "proxyType": "MANUAL",
+  #   "socksProxy": "50.16.78.110:443"
+  # }
+  @caps["proxy"] = {
+    "proxyType": "MANUAL",
+    "socksProxy": "50.16.78.110:443"
+  }
+  # @caps["browserstack.noPipeline"] = false
+  get_options
+  
+  run_test do
+    #Driver.post_url "http://localhost:8080/wd/pageload"
+    Driver.post_url "http://localhost/test/stress-500.html"
+    # Driver.post_url "http://localhost/test/stress-300.html"
+    # Driver.post_url "http://localhost/test/stress-100.html"
+    # Driver.post_url "http://google.com"
+    # Driver.post_url "http://local.bsstag.com:3000/"
+    # Driver.get_title
+    if @driver.title != "green"
+      RestClient.put "https://vibhajrajan1:isx1GLKoDPyxvJwMZBso@www.browserstack.com/automate/sessions/#{@my_session_id}.json", {"status"=>"error", "reason"=>""}, {:content_type => :json}
+    end
+    # Driver.get_screenshot
+  end
+end
+
+def pageload_do_ws
+  @build = "page load do ws #{@parallel}"
+  # @local = true
+  # "--proxy-server=socks5://localhost:5050", 
+  # @caps["chromeOptions"] = {'args' => ["--proxy-server=socks5://50.16.78.110:443"]}
+  @caps["proxy"] = {
+    "proxyType": "MANUAL",
+    "socksProxy": "50.16.78.110:443"
+  }
+  get_options
+  
+  run_test do
+    #Driver.post_url "http://localhost:8080/wd/pageload"
+    Driver.post_url "http://localhost/test/stress-500.html"
+    # Driver.post_url "http://local.bsstag.com:3000/"
+    # Driver.get_title
+    if @driver.title != "green"
+      RestClient.put "https://vibhajrajan1:isx1GLKoDPyxvJwMZBso@www.browserstack.com/automate/sessions/#{@my_session_id}.json", {"status"=>"error", "reason"=>""}, {:content_type => :json}
+    end
+    # Driver.get_screenshot
+  end
+end
+
+def pageload_binary
+  @build = "page load binary #{@parallel}"
+  @local = true
+  # @caps["browserstack.localIdentifier"] = "abc"
+  #@caps["chromeOptions"] = {'args' => ["--disable-application-cache", "--media-cache-size=1", "--disk-cache-size=1", "--proxy-server=socks5://128.199.133.92:5050"]}
+  get_options
+  
+  run_test do
+    # Driver.post_url "http://128.199.133.92/test/stress-500.html"
+    Driver.post_url "http://helpspot-41.local.com/test/stress-500.html"
+    # Driver.post_url "http://google.com"
+    # Driver.get_title
+    #Driver.get_screenshot
+    if @driver.title != "green"
+      RestClient.put "https://vibhajrajan1:isx1GLKoDPyxvJwMZBso@www.browserstack.com/automate/sessions/#{@my_session_id}.json", {"status"=>"error", "reason"=>""}, {:content_type => :json}
+    end
+  end
+end
+
+def video_check
+  @build = "video check"
+  @video = false
+  @local = true
+  @caps["browserstack.localIdentifier"] = "abc"
+  get_options
+  
+  run_test do
+    Driver.post_url "http://localhost:8080/wd/pageload"
+    Driver.get_title
+  end
+end
+
+def public_url_check
+  @build = "public url check"
+  # @local = true
+  # @caps["browserstack.localIdentifier"] = "abc"
+  get_options
+  
+  run_test do
+    Driver.post_url "https://vendorcp.us.sunpowermonitor.com/#/login"
+    # Driver.post_url "http://ec2-54-200-227-42.us-west-2.compute.amazonaws.com:8080/G2MApp/ApiSample.html"
+    Driver.get_title
+  end
+end
+
+def mem_leak_check
+  @build = "mem leak check #{@stypi}"
+  @local = true
+  @caps["browserstack.localIdentifier"] = "abc"
+  # "--proxy-server=socks5://localhost:5050", 
+  # @caps["chromeOptions"] = {'args' => ["--proxy-server=socks5://50.16.78.110:443"]}
+  get_options
+  
+  run_test do
+    @stypi.times do
+      Driver.post_url "http://techcrunch.com" rescue nil
+      Driver.get_title
+    end
+    # Driver.post_url "http://localhost/test/stress-500.html"
+    # Driver.post_url "http://local.bsstag.com:3000/""
+    # Driver.get_screenshot
+  end
+end
+
+def appium_amazon
+  @build = "appium amazon"
+  @browser = ARGV[2] || "iPad"
+  @device = ARGV[3] || "iPad Air"
+  @machine = ARGV[4] if ARGV[4]
+  @platform = "mac"
+  # @caps["deviceOrientation"] = "landscape"
+  @caps["launchTimeout"] = { :global => 90000, :afterSimLaunch => 15000 }
+  #@caps["waitForAppScript"] = true
+  #@nativeEvents = false
+  #@caps["autoAcceptAlerts"] = true
+  #@caps["acceptSslCerts"] = true
+  #@caps["nativeWebTap"] = true
+  #@caps["safariIgnoreFraudWarning"] = true
+  
+  run_test true do
+    #@driver.manage.timeouts.implicit_wait = 10
+    # Driver.post_url("http://techcrunch.com")
+    # Driver.get_title
+    # Driver.get_screenshot
+    # Driver.post_url "http://www.theverge.com/"
+    Driver.post_url "http://s3.amazonaws.com/video-ads-dev-players-test-media/sauceTest/html5-mp4-urls-test.html"
+    el = Driver.post_element :css, ".airy-play-toggle-hint-stage"
+    l = el.location
+    s = el.size
+    x = l.x + 100
+    y = l.y + 100
+    Util.log "Location #{el.location.inspect}"
+    Util.log "Size #{el.size.inspect}"
+
+    context = @appium_driver.available_contexts
+    current_context = @appium_driver.current_context
+    @appium_driver.set_context "NATIVE_APP"
+    Util.log  "Got context: #{context.inspect}"
+    # x = 200
+    # y = 250
+    touch = Appium::TouchAction.new
+    touch.tap({:x => x, :y => y}).perform()
+    sleep 5
+    Util.log  "Touch performed x=#{x} y=#{y}"
+    @appium_driver.set_context current_context
+    sleep 10
+    Driver.get_screenshot
+
+    # Driver.post_url("http://s3.amazonaws.com/video-ads-dev-players-test-media/sauceTest/html5-mp4-urls-test.html")
+    # Driver.get_title
+    # # Driver.get_screenshot
+    # el = Driver.post_element :css, ".airy-play-toggle-hint-stage"
+    # @driver.action.move_to(el).perform
+    # el.click
+    # puts "Performed"
+
+    # l = el.location
+    # s = el.size
+    # x = l.x + s.width/2
+    # y = l.y + s.height/2
+    # Util.log "Location #{el.location.inspect}"
+    # Util.log "Size #{el.size.inspect}"
+    # context = @appium_driver.available_contexts
+    # current_context = @appium_driver.current_context
+    # @appium_driver.set_context "NATIVE_APP"
+    # Util.log  "Got context: #{context.inspect}"
+    # Util.log "Element #{el.inspect}"
+    # touch = Appium::TouchAction.new
+    # touch.tap({:x => x, :y => y}).perform()
+    # sleep 5
+    # Util.log  "Touch performed x=#{x} y=#{y}"
+    # @appium_driver.set_context current_context
+
+    # Driver.get_title
+    # Driver.post_execute "$('.airy-play-toggle-hint-stage').click()"
+    # Driver.get_title
+    # Driver.get_screenshot
+    # @driver.page_source
+    # sleep 50
+  end
+end
+
+def appium_native
+  @build = "appium native"
+  @browser = ARGV[2] || "iPad"
+  @device = ARGV[3] || "iPad Air"
+  @machine = ARGV[4] if ARGV[4]
+  @platform = "mac"
+  # @caps["deviceOrientation"] = "landscape"
+  @caps["launchTimeout"] = { :global => 90000, :afterSimLaunch => 15000 }
+  #@caps["waitForAppScript"] = true
+  #@nativeEvents = false
+  #@caps["autoAcceptAlerts"] = true
+  #@caps["acceptSslCerts"] = true
+  #@caps["nativeWebTap"] = true
+  #@caps["safariIgnoreFraudWarning"] = true
+  
+  run_test true do
+    #@driver.manage.timeouts.implicit_wait = 10
+    # Driver.post_url("http://techcrunch.com")
+    # Driver.get_title
+    # Driver.get_screenshot
+    # Driver.post_url "http://www.theverge.com/"
+    Driver.post_url "https://public.tableau.com/profile/ifpri.td7290#!/vizhome/2014GHI/2014GHI"
+    context = @appium_driver.available_contexts
+    current_context = @appium_driver.current_context
+    @appium_driver.set_context "NATIVE_APP"
+    Util.log  "Got context: #{context.inspect}"
+    x = 250
+    y = 250
+    touch = Appium::TouchAction.new
+    touch.tap({:x => x, :y => y}).perform()
+    sleep 5
+    Util.log  "Touch performed x=#{x} y=#{y}"
+    @appium_driver.set_context current_context
+
+    Driver.get
+  end
+end
+
+def prod_rake_issue
+  @build = "prod rake issue"
+
+  sample
+end
+
+def opendns_check
+  @build = "browserstack debugging"
+  @local = true
+  @project = ""
+  @build = ""
+  # @caps["browserstack.localIdentifier"] = "abc"
+  get_options
+  
+  run_test do
+    Driver.post_url "http://login.browserstack.www.dash.d1.usw1.opendns.com/devauth?username=mailcatcher%2B5701db6a3e53c%40opendns.com&password=5701db664f7d5Abc123%21"
+    Driver.get_title
+    sleep 10
+    Driver.post_url "http://dashboard2.browserstack.www.dash.d1.usw1.opendns.com/o/1953741/#/configuration/policy"
+    sleep 10
+    el = Driver.post_element :css, "a.addNewPolicy"
+    sleep 10
+    25.times do 
+      Driver.get_title
+      sleep 50
+    end
+  end
+end
+
+def custom_host
+  @build = "custom host"
+  @local = true
+  @caps["browserstack.localIdentifier"] = "nvminternal_netBrowserStackTunnel3"
+  @caps["acceptSslCerts"] = true
+  @hosts = "192.168.12.35,callcentre.nvminternal.net"
+  get_options
+  
+  run_test do
+    Driver.post_url "http://callcentre.nvminternal.net/callcentre/contacthub/login"
+    Driver.get_url
+    Driver.get_title
+  end
+end
+
+def open_url_time
+  @build = "open url time"
+  @caps["acceptSslCerts"] = true
+  @caps["resolution"] = "1920x1080"
+  get_options
+  
+  run_test do
+    Driver.post_url "https://staging.kickorstick.com/"
+    Driver.get_url
+    Driver.get_title
+  end
+end
+
+def edge_timeout
+  @build = "edge timeout"
+  get_options
+  
+  run_test do
+    Driver.post_implicit_timeout 3
+    @driver.manage.timeouts.page_load = 15
+    @driver.manage.timeouts.script_timeout = 180
+    Driver.post_url "https://google.com/"
+    Driver.get_url
+    Driver.get_title
+  end
+end
+
+def real_mobile_android
+  @build = "real mobile android"
+  @browser = "android"
+  @device = ARGV[2] || "Google Nexus 6"
+  @platform = "android"
+  @real_mobile = true
+  #@caps["acceptSslCerts"] = true
+  #@nativeEvents = true
+  
+  run_test true do
+    # @appium_driver.driver.rotate :portrait?
+    Driver.post_url("http://google.com")
+    Driver.get_title
+    el = Driver.post_element :name, "q"
+    el.send_keys "browserstack"
+    Driver.get_title
+    Driver.get_screenshot
+    Driver.post_url("https://test.buggycoder.com")
+    Driver.get_title
+    Driver.get_screenshot
+    Driver.post_element(:id, "st_popup_acceptButton")
+  end
+end
+
+def real_android_local
+  @build = "real mobile android local"
+  @browser = "android"
+  @device = ARGV[2] || "Google Nexus 6"
+  @platform = "android"
+  @real_mobile = true
+  @local = true
+  #@caps["acceptSslCerts"] = true
+  #@nativeEvents = true
+  
+  run_test true do
+    Driver.post_url("http://google.com")
+    Driver.get_title
+    el = Driver.post_element :name, "q"
+    el.send_keys "browserstack"
+    Driver.get_title
+    Driver.get_screenshot
+    Driver.post_url("http://128.199.133.92/test/stress-500.html")
+    Driver.get_title
+    Driver.get_screenshot
+  end
+end
+
+def public_proxy
+  @build = "public proxy"
+  @caps["chromeOptions"] = {'args' => ["--proxy-server=socks5://50.16.78.110:443"]}
+  get_options
+  
+  run_test do
+    Driver.post_url "http://128.199.133.92/test/stress-500.html"
+    Driver.get_title
+  end
+end
+
+def real_android_proxy
+  @build = "real mobile android proxy"
+  @browser = "android"
+  @device = ARGV[2] || "Google Nexus 6"
+  @platform = "android"
+  @real_mobile = true
+  @caps["chromeOptions"] = {'args' => ["--proxy-server=socks5://50.16.78.110:443"]}
+  #@caps["acceptSslCerts"] = true
+  #@nativeEvents = true
+  run_test do
+    Driver.post_url "http://128.199.133.92/test/stress-500.html"
+    Driver.get_title
+  end
+end
+
+def real_procing
+  @build = "real mobile pricing"
+  @browser = "android"
+  @device = ARGV[2] || "Google Nexus 6"
+  @platform = "android"
+  @real_mobile = true
+  
+  run_test do
+    Driver.post_url "http://ci.bsstag.com/pricing"
+    Driver.get_title
+    el = Driver.post_element :css, "div.live-plan div.chosen-container"
+    el.click
+  end
+end
+
+def public_url_check
+  @build = "public url check"
+  @resolution="1920x1080"
+  get_options
+  
+  run_test do
+    Driver.post_url "https://conta:stagefright@stage.conta.no/backstage/dist/"
+    Driver.get_title
+  end
+end
+
+def real_close_window
+  @build = "real mobile close window"
+  @browser = "android"
+  @device = ARGV[2] || "Google Nexus 6"
+  @platform = "android"
+  @real_mobile = true
+  
+  run_test do
+    Driver.post_url "http://ci.bsstag.com/pricing"
+    Driver.get_title
+
+    # a = @driver.window_handles
+    # puts a
+
+    # @driver.switch_to.window a[0]
+    @driver.close
+
+    # Driver.get_title
+    Driver.get_url
+  end
+end
+
+def flash_check
+  @build = "flash check"
+  @caps["browserstack.ie.noFlash"] = true
+  get_options
+  
+  run_test do
+    Driver.post_url "http://isflashinstalled.com/"
+    Driver.get_title
+    Driver.get_screenshot
+  end
+end
+
+def real_android
+  @build = "real android"
+  @browser = "android"
+  @device = ARGV[2] || "Google Nexus 6"
+  @platform = "android"
+  @real_mobile = true
+  
+  run_test do
+    Driver.post_url "https://www.google.com" rescue nil
+    Driver.get_title
+    Driver.post_url "http://vendorcp.us.sunpowermonitor.com"
+    Driver.get_title
+    Driver.post_url "https://test.buggycoder.com/"
+    Driver.get_title
+    Driver.post_url "https://invalid.buggycoder.com/"
+    Driver.get_title
+    Driver.post_url "https://expired.buggycoder.com/"
+    Driver.get_title
+  end
+end
+
+def real_ios
+  @build = "real ios"
+  @browser = "iPhone"
+  @device = ARGV[2] || "iPhone 6S"
+  @machine = ARGV[3]
+  @platform = "MAC"
+  @real_mobile = true
+  @pageLoadStrategy = "unstable"
+  @caps["acceptSslCerts"] = @caps["acceptSslCert"] = true
+  @caps["autoAcceptAlerts"] = true
+  
+  run_test do
+    # Driver.get_url
+    # Driver.post_execute "document.location.href = 'https://www.google.com';"
+    Driver.post_url "https://www.google.com"
+    Driver.get_title
+    Driver.post_url "http://vendorcp.us.sunpowermonitor.com"
+    Driver.get_title
+    # Driver.post_url "https://test.buggycoder.com/"
+    # Driver.get_title
+    # Driver.post_url "https://invalid.buggycoder.com/"
+    # Driver.get_title
+    # Driver.post_url "https://expired.buggycoder.com/"
+    # Driver.get_title
+  end
+end
+
+Parallel.map([*1..@parallel], :in_processes => @parallel) do |id|
+  sleep id*(ENV["D"] || 0).to_i
+  send(@test)
+end
