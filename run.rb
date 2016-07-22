@@ -34,7 +34,7 @@ require 'rest_client'
 # @jar = "2.53.0"
 # @resolution = "1440x900"
 # @resolution = "1920x1080"
-# @iedriver = "2.52"
+# @iedriver = "2.53"
 @url = "http://google.com"
 @nativeEvents = false
 @real_mobile = false
@@ -137,8 +137,8 @@ module Driver
     @driver.title
   end
 
-  def Driver.post_execute(script)
-    @driver.execute_script(script)
+  def Driver.post_execute(script, args=[])
+    @driver.execute_script(script, args)
   end
 
   def Driver.post_element(using, value)
@@ -183,6 +183,7 @@ end
   'dev2' => 'dev2.bsstag.com:4444',
   'sys' => '127.0.0.1:8080',
   'proxy' => "local.browserstack.com:5050",
+  'wtfproxy' => "local.browserstack.com:5050",
 
   'us' => '208.52.180.201',
   'us4444' => '208.52.180.201:4444',
@@ -203,6 +204,7 @@ end
   'localprod' => 'local.browserstack.com:8080',
   
   'eu' => '5.255.93.10',
+  'user' => '5.255.93.10',
   'eu4444' => '5.255.93.10:4444',
   'eu1' => '5.255.93.14:4444',
   'eu2' => '5.255.93.9:4444',
@@ -230,6 +232,7 @@ end
   'us4444' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
   'usw' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
   'eu' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
+  'user' => 'punitmittal2:2Zz74sewDqbqiBfS7H5s',
   'eu8080' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
   'eu4444' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
   'use2' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
@@ -246,6 +249,7 @@ end
   'dev2' => 'vibhaj1:CopHrbmT9CJ2SKLwAUi8',
   'sys' => 'abc:123',
   'proxy' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
+  'wtfproxy' => 'jinal1:b7wEZaJYyooH7FHJbu9e',
   'cdn' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
   'cloud' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
   'ceu' => 'vibhajrajan1:isx1GLKoDPyxvJwMZBso',
@@ -263,8 +267,9 @@ end
 @browserName = ""
 @platform = ""
 @version = ""
-@project = "vibhaj [hub-#{@env}.may.2016]"
-@name = ""
+@project = "vibhaj [hub-#{@env}.jun.2016]"
+@name = ENV['M'] || ""
+@build = ENV['B'] || nil
 # @jsEnabled = true
 
 # @machine = "185.44.128.181"
@@ -301,8 +306,8 @@ def create_driver(appium = false)
     caps["browserName"] = @browserName
     caps["platform"] = @platform
     caps[:platform] = @platform
-    caps["version"] = @version
-    caps[:version] = @version
+    # caps["version"] = @version
+    # caps[:version] = @version
     caps[:nativeEvents] = @nativeEvents
     caps[:native_events] = @nativeEvents
     caps["javascriptEnabled"] = @jsEnabled
@@ -449,6 +454,24 @@ end
 
 #######################################################################################
 
+def mini
+  @build = @build || "sample test"
+  get_options
+
+  run_test do
+    Driver.post_url "http://whatsmybrowser.com"
+    Driver.get_screenshot
+
+    Driver.post_url("http://google.com")
+    el = Driver.post_element :name, "q"
+    el.send_keys "browserstack"
+    el1 = Driver.post_element :name, "btnG"
+    el1.click
+    Driver.post_url "about:blank"
+    Driver.post_element(:id, "st_popup_acceptButton")
+  end
+end
+
 def sample
   @build = @build || "sample test"
   get_options
@@ -480,11 +503,11 @@ def sample
 
     Driver.get_screenshot
     #sleep 40
-    Driver.post_url "http://whatsmybrowser.com"
-    @driver.page_source
-    @driver.page_source
-    @driver.page_source
-    @driver.page_source
+    # Driver.post_url "http://whatsmybrowser.com"
+    # @driver.page_source
+    # @driver.page_source
+    # @driver.page_source
+    # @driver.page_source
     # @driver.page_source
     Driver.post_element(:id, "st_popup_acceptButton")
     #Driver.post_element(:css, ".span.ui-messages-info-detail")
@@ -722,13 +745,19 @@ end
 def basic_auth
   @build = "basic auth"
   get_options
+  @caps["acceptSslCerts"] = true
   
   run_test do
     #@driver.manage.timeouts.page_load = 30
     Driver.post_maximize
-    Driver.post_url("http://enigmary%5Ctestuser01:Enigmatry1@twoclickstest.test.enigmatry.com")
+    # Driver.post_url("http://enigmary%5Ctestuser01:Enigmatry1@twoclickstest.test.enigmatry.com")
+    # Driver.post_execute "return document.readyState"
+    # sleep 5
+    Driver.post_url "https://teas:M%40lmberg@tst.teas.sanomapro.fi/authentication/oauth/test"
     Driver.post_execute "return document.readyState"
-    sleep 5
+    Driver.post_url "https://ostdteam:ostdteam@test.scorecompass.ostdlabs.com"
+    Driver.get_title
+
   end
 end
 
@@ -801,13 +830,34 @@ def emulator_screenshots
   @browser = "android"
   @device = "Samsung Galaxy S4"
   @platform = "ANDROID"
-  
+  # @browserName = "android"
+
   run_test do
     Driver.post_maximize
     #@driver.manage.timeouts.implicit_wait = 10
-    Driver.post_url "https://www.blockhunt.com/latest2/listing.html"
+    Driver.post_url "http://google.com"
     Driver.get_screenshot
     sleep 5
+  end
+end
+
+def emulator_local
+  @build = "emulator local"
+  @browser = "android"
+  @device = ARGV[2] || "Samsung Galaxy S4"
+  @platform = "ANDROID"
+  @local = true
+  # @browserName = "android"
+
+  run_test do
+    Driver.post_maximize
+    #@driver.manage.timeouts.implicit_wait = 10
+    Driver.post_url "http://google.com"
+    Driver.get_title
+    Driver.get_screenshot
+    Driver.post_url "http://local.browserstack.com:8080/wd/hub/status"
+    Driver.get_title
+    Driver.get_screenshot
   end
 end
 
@@ -903,13 +953,18 @@ end
 def local_check
   @build = @build || "local check"
   @local = true
+  # @caps["browserstack.privoxy"] = true
+
   get_options
   run_test do
+    Driver.post_url "https://google.com"
+    Driver.post_url "https://hub.browserstack.com/"
+    Driver.post_url "http://hub.browserstack.com/wd/hub/status"
     #Driver.get_window_size
     #Driver.post_url("http://google.abc")
-    #Driver.post_url("https://local.browserstack.com")
+    #Driver.post_url("http://local.browserstack.com:8080/wd/hub/status")
     #Driver.get_title
-    Driver.post_url("http://local.browserstack.com:3000")
+    # Driver.post_url("http://local.browserstack.com:3000")
     # Driver.get_url
     # Driver.get_title
     # Driver.post_url("http://localhost:4567")
@@ -969,7 +1024,7 @@ def appium_android
     el.send_keys ""
     Driver.get_title
     Driver.get_screenshot
-    Driver.post_url("https://test.buggycoder.com")
+    Driver.post_url("https://appsgate.iitk.ac.in")
     Driver.get_title
     Driver.get_screenshot
     Driver.post_element(:id, "st_popup_acceptButton")
@@ -1254,7 +1309,7 @@ def appium_driver
     Driver.post_url("http://abc:def@google.com")
     Driver.get_title
     Driver.get_screenshot
-    Driver.post_url("https://test.buggycoder.com")
+    Driver.post_url("https://appsgate.iitk.ac.in")
     Driver.get_title
     Driver.get_screenshot
     #Driver.post_element(:id, "st_popup_acceptButton")
@@ -1309,7 +1364,7 @@ def appium_tap
     # sleep 5
     # Driver.get_title
     Driver.get_screenshot
-    Driver.post_url("https://test.buggycoder.com")
+    Driver.post_url("https://appsgate.iitk.ac.in")
     Driver.get_title
   end
 end
@@ -1334,14 +1389,14 @@ def appium_ios
     # Driver.post_url("http://techcrunch.com")
     # Driver.get_title
     # Driver.get_screenshot
-    Driver.post_url("https://test.buggycoder.com")
+    Driver.post_url("https://appsgate.iitk.ac.in")
     Driver.get_title
     Driver.get_screenshot
     Driver.post_url("http://abc:def@google.com")
     Driver.get_title
     Driver.get_screenshot
     #Driver.post_element(:id, "st_popup_acceptButton")
-    sleep 15
+    # sleep 15
   end
 end
 
@@ -1361,7 +1416,7 @@ def appium_self_cert
   
   run_test do
     #@driver.manage.timeouts.implicit_wait = 10
-    Driver.post_url("https://test.buggycoder.com")
+    Driver.post_url("https://appsgate.iitk.ac.in")
     Driver.get_title
     Driver.get_screenshot
   end
@@ -1449,10 +1504,12 @@ def stypi
     #Driver.get_window_size
     Driver.post_url("http://google.com")
     Driver.get_title
+    start = Time.now.to_i
     el = Driver.post_element :name, "q"
     @stypi.times do
       el.send_keys "b"
     end
+    puts "[TIME] #{Time.now.to_i - start} seconds"
     Driver.get_screenshot
     sleep 10
   end
@@ -1465,7 +1522,11 @@ def self_signed_cert
   get_options
   
   run_test do
-    Driver.post_url("https://test.buggycoder.com")
+    Driver.post_url("https://appsgate.iitk.ac.in")
+    Driver.get_title
+    Driver.post_url("https://appsgate.iitk.ac.in")
+    Driver.get_title
+    Driver.post_url("https://appsgate.iitk.ac.in")
     Driver.get_title
     #Driver.post_url("https://localtesting.browserstack.com")
     #Driver.get_title
@@ -1607,29 +1668,6 @@ def native_events
     el[0].click
     Driver.get_screenshot
     Driver.post_element(:id, "st_popup_acceptButton")
-    #sleep 10
-  end
-end
-
-def socket_count
-  @build = @build || "socket count"
-  get_options
-  run_test do
-    #Driver.get_window_size
-    Driver.post_url("http://google.com")
-    50.times do
-      Driver.get_title
-      sleep 1
-    end
-    el = Driver.post_element :name, "q"
-    el.send_keys "browserstack"
-    el1 = Driver.post_element :name, "btnG"
-    el1.click
-    Driver.get_screenshot
-    #sleep 40
-    Driver.post_element(:id, "st_popup_acceptButton")
-    #Driver.post_element(:css, ".span.ui-messages-info-detail")
-    Driver.get_screenshot
     #sleep 10
   end
 end
@@ -2238,13 +2276,15 @@ end
 def pageload_binary
   @build = "page load binary #{@parallel}"
   @local = true
+  @caps["browserstack.privoxy"] = true
   # @caps["browserstack.localIdentifier"] = "abc"
   #@caps["chromeOptions"] = {'args' => ["--disable-application-cache", "--media-cache-size=1", "--disk-cache-size=1", "--proxy-server=socks5://128.199.133.92:5050"]}
   get_options
   
   run_test do
     # Driver.post_url "http://128.199.133.92/test/stress-500.html"
-    Driver.post_url "http://helpspot-41.local.com/test/stress-500.html"
+    # Driver.post_url "http://helpspot-41.local.com/test/stress-500.html"
+    Driver.post_url "http://appsgate.iitk.ac.in/test/stress-500.html"
     # Driver.post_url "http://google.com"
     # Driver.get_title
     #Driver.get_screenshot
@@ -2503,7 +2543,7 @@ def real_mobile_android
     el.send_keys "browserstack"
     Driver.get_title
     Driver.get_screenshot
-    Driver.post_url("https://test.buggycoder.com")
+    Driver.post_url("https://appsgate.iitk.ac.in")
     Driver.get_title
     Driver.get_screenshot
     Driver.post_element(:id, "st_popup_acceptButton")
@@ -2517,6 +2557,7 @@ def real_android_local
   @platform = "android"
   @real_mobile = true
   @local = true
+  @deviceOrientation = "landscape"
   #@caps["acceptSslCerts"] = true
   #@nativeEvents = true
   
@@ -2525,9 +2566,6 @@ def real_android_local
     Driver.get_title
     el = Driver.post_element :name, "q"
     el.send_keys "browserstack"
-    Driver.get_title
-    Driver.get_screenshot
-    Driver.post_url("http://128.199.133.92/test/stress-500.html")
     Driver.get_title
     Driver.get_screenshot
   end
@@ -2621,51 +2659,518 @@ end
 
 def real_android
   @build = "real android"
-  @browser = "android"
+  #@browser = "android"
+  #@os_version = "5.0"
+  # @browser = "chrome"
   @device = ARGV[2] || "Google Nexus 6"
-  @platform = "android"
+  # @platform = "android"
+  # @caps["deviceOrientation"] = "landscape"
+  # @version = "4.4"
   @real_mobile = true
+  #@browserName = "android"
+  #@caps["browser_version"] = "nil"
+  #@caps["os"] = "android"
+  # @caps["os_version"] = "5.0"
+  @caps["platformName"] = "android"
+  @platform = "android"
   
   run_test do
     Driver.post_url "https://www.google.com" rescue nil
     Driver.get_title
+    Driver.post_element(:id, "st_popup_acceptButton") rescue nil
+    Driver.get_screenshot
     Driver.post_url "http://vendorcp.us.sunpowermonitor.com"
     Driver.get_title
-    Driver.post_url "https://test.buggycoder.com/"
+    Driver.post_url "https://appsgate.iitk.ac.in/"
     Driver.get_title
-    Driver.post_url "https://invalid.buggycoder.com/"
+    puts @driver.orientation
+    @driver.rotation = :landscape
+    puts @driver.orientation
+    Driver.post_url "https://appsgate.iitk.ac.in/"
     Driver.get_title
-    Driver.post_url "https://expired.buggycoder.com/"
+    puts @driver.orientation
+    @driver.rotation = :portrait
+    puts @driver.orientation
+    Driver.post_url "https://appsgate.iitk.ac.in/"
     Driver.get_title
   end
 end
 
 def real_ios
   @build = "real ios"
+  @browser = ARGV[2] || "iPhone"
+  @device = ARGV[3] || "iPhone 6S"
+  @machine = ARGV[4]
+  @platform = "ANY"
+  # @caps["realMobile"] = true
+  # @real_mobile = true
+  # @caps["platformName"] = "ios"
+  # @caps["deviceName"] = @device
+  # @caps["deviceOrientation"] = "landscape"
+  @pageLoadStrategy = "unstable"
+  @caps["acceptSslCerts"] = @caps["acceptSslCert"] = true
+  # @caps["autoAcceptAlerts"] = true
+  # # @local = true
+  
+  run_test do
+    # Driver.get_url
+    # Driver.post_execute "document.location.href = 'https://www.google.com';"
+    # Driver.post_url "http://localhost:3000/"
+    Driver.post_url "https://www.google.com"
+    Driver.get_title
+    Driver.post_element(:id, "st_popup_acceptButton") rescue nil
+    Driver.get_screenshot
+    @driver.close
+    Driver.post_url "http://vendorcp.us.sunpowermonitor.com"
+    Driver.get_title
+    Driver.post_url "https://appsgate.iitk.ac.in/"
+    Driver.get_title
+    puts @driver.orientation
+    @driver.rotation = :landscape
+    puts @driver.orientation
+    # Driver.post_url "https://appsgate.iitk.ac.in/"
+    # Driver.get_title
+    # puts @driver.orientation
+    # @driver.rotation = :portrait
+    # puts @driver.orientation
+    # Driver.post_url "https://appsgate.iitk.ac.in/"
+    # Driver.get_title
+  end
+end
+
+def real_ios_scf
+  @build = "real ios scf"
+  @browser = ARGV[2] || "iPhone"
+  @device = ARGV[3] || "iPhone 6S"
+  @machine = ARGV[4]
+  @platform = "ANY"
+  # @caps["realMobile"] = true
+  # @real_mobile = true
+  # @caps["platformName"] = "ios"
+  # @caps["deviceName"] = @device
+  # @caps["deviceOrientation"] = "landscape"
+  @pageLoadStrategy = "unstable"
+  @caps["acceptSslCerts"] = @caps["acceptSslCert"] = true
+  # @caps["autoAcceptAlerts"] = true
+  # # @local = true
+  
+  run_test do
+    # Driver.get_url
+    # Driver.post_execute "document.location.href = 'https://www.google.com';"
+    # Driver.post_url "http://localhost:3000/"
+    # Driver.post_url "https://test.buggycoder.com/"
+    Driver.post_url "https://www.google.com/"
+    Driver.get_title
+    Driver.get_screenshot
+  end
+end
+
+def real_ios_orientation
+  @build = "real ios orientation"
+  @browser = ARGV[2] || "iPhone"
+  @device = ARGV[3] || "iPhone 6S"
+  @machine = ARGV[4]
+  @platform = "ANY"
+  @real_mobile = true
+  # @caps["platformName"] = "ios"
+  # @caps["deviceName"] = @device
+  # @caps["deviceOrientation"] = "landscape"
+  @pageLoadStrategy = "unstable"
+  # @caps["acceptSslCerts"] = @caps["acceptSslCert"] = true
+  # @caps["autoAcceptAlerts"] = true
+  # # @local = true
+  
+  run_test do
+    # Driver.get_url
+    # Driver.post_execute "document.location.href = 'https://www.google.com';"
+    # Driver.post_url "http://localhost:3000/"
+    Driver.post_url "https://www.google.com"
+    Driver.get_title
+    Driver.post_element(:id, "st_popup_acceptButton") rescue nil
+    Driver.get_screenshot
+    puts @driver.orientation
+    @driver.rotation = :landscape
+    puts @driver.orientation
+    Driver.post_url "http://vendorcp.us.sunpowermonitor.com"
+    Driver.get_title
+    puts @driver.orientation
+    @driver.rotation = :portrait
+    puts @driver.orientation
+    Driver.get_title
+  end
+end
+
+def real_ios_alert
+  @build = "real ios"
   @browser = "iPhone"
   @device = ARGV[2] || "iPhone 6S"
   @machine = ARGV[3]
   @platform = "MAC"
   @real_mobile = true
+  # @caps["deviceOrientation"] = "landscape"
   @pageLoadStrategy = "unstable"
-  @caps["acceptSslCerts"] = @caps["acceptSslCert"] = true
-  @caps["autoAcceptAlerts"] = true
+  # @caps["acceptSslCerts"] = @caps["acceptSslCert"] = true
+  # @caps["autoAcceptAlerts"] = true
+  # @local = true
   
   run_test do
     # Driver.get_url
     # Driver.post_execute "document.location.href = 'https://www.google.com';"
-    Driver.post_url "https://www.google.com"
+    # Driver.post_url "http://localhost:3000/"
+    Driver.post_url "http://stormy-beyond-9729.herokuapp.com/test"
     Driver.get_title
-    Driver.post_url "http://vendorcp.us.sunpowermonitor.com"
-    Driver.get_title
-    # Driver.post_url "https://test.buggycoder.com/"
-    # Driver.get_title
-    # Driver.post_url "https://invalid.buggycoder.com/"
-    # Driver.get_title
-    # Driver.post_url "https://expired.buggycoder.com/"
-    # Driver.get_title
+    el = Driver.post_element(:id, "alert")
+    el.click
+    puts @driver.switch_to.alert.text
   end
 end
+
+def sample_open_url
+  @build = "sample open url"
+  #@caps["browserstack.noPageLoadTimeout"] = true
+  get_options
+  
+  run_test do
+    Driver.post_url "https://test.nexgate.com/users/sign_out"
+    Driver.get_title
+    Driver.get_screenshot
+  end
+end
+
+def safari_auth
+  @build = "safari auth"
+  @caps["acceptSslCerts"] = true
+  get_options
+  
+  run_test do
+    Driver.post_url "https://ostdteam:ostdteam@test.scorecompass.ostdlabs.com"
+    Driver.get_title
+    Driver.get_screenshot
+    Driver.post_url "https://www.google.com"
+    Driver.get_title
+    Driver.get_screenshot
+  end
+end
+
+def appium_ios_auth
+  @build = "appium ios auth"
+  @browser = ARGV[2] || "iPad"
+  @device = ARGV[3] || "iPad Air"
+  @machine = ARGV[4] if ARGV[4]
+  @platform = "ANY"
+  @caps["deviceOrientation"] = "landscape"
+  @caps["launchTimeout"] = { :global => 90000, :afterSimLaunch => 15000 }
+  #@caps["waitForAppScript"] = true
+  #@nativeEvents = false
+  #@caps["autoAcceptAlerts"] = true
+  @caps["acceptSslCerts"] = true
+  @caps["nativeWebTap"] = true
+  @caps["safariIgnoreFraudWarning"] = true
+  
+  run_test do
+    #@driver.manage.timeouts.implicit_wait = 10
+    Driver.post_url "https://ostdteam:ostdteam@test.scorecompass.ostdlabs.com"
+    Driver.get_title
+    Driver.get_screenshot
+    Driver.post_url("https://appsgate.iitk.ac.in")
+    Driver.get_title
+    Driver.get_screenshot
+    Driver.post_url("http://abc:def@google.com")
+    Driver.get_title
+    Driver.get_screenshot
+    #Driver.post_element(:id, "st_popup_acceptButton")
+    # sleep 15
+  end
+end
+
+def public_open_url
+  @build = "public open url"
+  get_options
+  
+  run_test do
+    # Driver.post_url "https://m7-stg.coyote.co.uk/"
+    Driver.post_url "http://uat.dev.globalvetlink.com/segway/login/auth"
+    Driver.get_title
+    Driver.get_url
+    Driver.get_screenshot
+  end
+end
+
+def chrome_caps
+  @build = "chrome caps"
+  @browser = "chrome"
+  @browser_version = ARGV[2] || ""
+  @os = ""
+  @os_version = ""
+  @caps["browserstack.chrome.driver"] = ARGV[3] || "2.20"
+  
+  run_test do
+    Driver.post_url "https://m7-stg.coyote.co.uk/"
+    Driver.get_title
+    # Driver.get_url
+    # Driver.get_screenshot
+  end
+end
+
+def real_android_stability
+  @build = "real android stability"
+  @browser = "android"
+  @os_version = "5.0"
+  @device = ARGV[2] || "Google Nexus 6"
+  @real_mobile = true
+  @browserName = "android"
+  @platform = "ANY"
+  
+  run_test do
+    Driver.post_url "https://admin:abcd@wtf.bsstag.com/admin/terminals"
+    Driver.get_url
+    Driver.get_title
+  end
+end
+
+def real_android_local_2
+  @build = "real android local"
+  @browser = "android"
+  @os_version = "5.0"
+  @device = ARGV[2] || "Google Nexus 6"
+  @real_mobile = true
+  @browserName = "android"
+  @platform = "ANY"
+  @local = true
+  
+  run_test do
+    Driver.post_url "https://www.google.com"
+    Driver.get_url
+    Driver.get_title
+  end
+end
+
+
+def real_ios_stability
+  @build = "real ios stability"
+  @browser = "iPhone"
+  @device = ARGV[2] || "iPhone 6S"
+  @machine = ARGV[3]
+  @platform = "MAC"
+  @real_mobile = true
+  @caps["deviceOrientation"] = "landscape"
+  @caps["acceptSslCerts"] = @caps["acceptSslCert"] = true
+  @jsEnabled = true
+  
+  run_test true do
+    Driver.post_url "https://admin:abcd@wtf.bsstag.com/admin/terminals"
+    # Driver.post_url "http://www.google.com"
+    Driver.post_execute "return document.readyState"
+    Driver.get_url
+    Driver.get_title
+  end
+end
+
+def file_download
+  @build = "file download"
+  get_options
+  
+  run_test do
+    Driver.post_url "https://rubygems.org/gems/browserstack-local"
+    el = Driver.post_element :id, "download"
+    el.click
+    Driver.get_title
+    Driver.get_url
+    Driver.get_screenshot
+  end
+end
+
+def app_android
+  @build = "app android"
+  @browser = "android"
+  @device = ARGV[2] || "Google Nexus 6"
+  @caps["platformVersion"] = ARGV[3] || "5.0"
+  # @platform = "android"
+  # @caps["deviceOrientation"] = "landscape"
+  # @version = "4.4"
+  @real_mobile = true
+  @browserName = "android"
+  @caps["browser_version"] = "nil"
+  @caps["os"] = "android"
+  # @caps["app"] = "https://bs-stag.s3.amazonaws.com/867a6bbc5d2a57b383de7125b7a6bea64dfd8af50030a8913e85e9d06a507234/867a6bbc5d2a57b383de7125b7a6bea64dfd8af50030a8913e85e9d06a507234.apk?AWSAccessKeyId=AKIAJ4GWXIJTAW7N2Z4A&Expires=1472960489&Signature=zD%2BSZjSpJL8aU3kzaym8Cq0OKl8%3D"
+  @caps["app"] = "https://browserstack-user-apps.s3.amazonaws.com/d01a65c98d976f89a8f76279aeb30e1f3a314dc5b3979c35d30b42f62ae7c988/d01a65c98d976f89a8f76279aeb30e1f3a314dc5b3979c35d30b42f62ae7c988.apk?AWSAccessKeyId=AKIAJII2FX4REVVMGTAA&Expires=1473318772&Signature=ZZ5%2B2sluXyTy1LO77%2FJNPinPbH0%3D"
+  # @caps["app"] = "https://bs-stag.s3.amazonaws.com/1bb46ccd897504127be038b00a39df11bcc70aee1aa4f716368ba77195a6eee8/1bb46ccd897504127be038b00a39df11bcc70aee1aa4f716368ba77195a6eee8.apk?AWSAccessKeyId=AKIAJ4GWXIJTAW7N2Z4A&Expires=1473308218&Signature=yoNYB1Fx8Gpox1A7UcihLFHK0Vk%3D" if @env.match(/eu|us|usw/i)
+  # @caps["os_version"] = "5.0"
+  @platform = "ANY"
+  
+  run_test true do
+    @driver.save_screenshot "test.png"
+    sample_text = @driver.find_element :id, "sampleLabel"
+    puts sample_text.text
+    context = @appium_driver.available_contexts
+    num1 = @driver.find_element :id, "num1"
+    num2 = @driver.find_element :id, "num2"
+    num1.send_keys "12"
+    num2.send_keys "32"
+    add_btn = @driver.find_element :id, "addBtn"
+    # add_btn.click
+    touch = Appium::TouchAction.new
+    touch.tap({:element => add_btn}).perform()
+    @driver.save_screenshot "test.png"
+    puts sample_text.text
+  end
+end
+
+def app_ios
+  @build = "app ios"
+  @browser = "ios"
+  @device = ARGV[2] || "iPhone 6S"
+  # @caps["platformVersion"] = ARGV[3] || "9.0"
+  # @platform = "android"
+  # @caps["deviceOrientation"] = "landscape"
+  # @version = "4.4"
+  @real_mobile = true
+  # @caps["app"] = "https://browserstack-user-apps.s3.amazonaws.com/ec643ebc3d898757c24641df6a6a6e57c9dd9f81c5121ff4f07c768224f12a5f/ec643ebc3d898757c24641df6a6a6e57c9dd9f81c5121ff4f07c768224f12a5f.apk?AWSAccessKeyId=AKIAJ5JURHMY7PWPTDLA&Expires=1477049486&Signature=9qKGfcZCh38hjGXgsE7Pq9vVVdw%3D"
+  @caps["bundleId"] = "com.browserstack.AddNumber"
+  @caps["app"] = "bs://c6435bf758e5b92f806be9cf8b94fb7f16bfa4f7"
+  @platform = "ANY"
+  # @caps["browserstack.machine"] = "114.143.208.211:529b0cef654988cc73a21588c682efc07eb94d84"
+
+  run_test true do
+    @driver.save_screenshot "test.png"
+    #sample_text = @driver.find_element :id, "sampleLabel"
+    #puts sample_text.text
+    context = @appium_driver.available_contexts
+    num1 = @driver.find_element :id, "num1"
+    num2 = @driver.find_element :id, "num2"
+    num1.send_keys "12"
+    num2.send_keys "32"
+    add_btn = @driver.find_element :id, "addBtn"
+    # add_btn.click
+    touch = Appium::TouchAction.new
+    touch.tap({:element => add_btn}).perform()
+    @driver.save_screenshot "test.png"
+    #puts sample_text.text
+  end
+end
+
+def navigation
+  @build = "navigation"
+  get_options
+  # @caps["browserstack.safari.driver"] = "2.48"
+  @caps["browserstack.autoWait"] = 0
+  
+  run_test do
+    Driver.post_url "https://google.com"
+    Driver.get_title
+    Driver.post_url "http://reevoo.github.io/"
+    Driver.get_title
+    # Driver.post_execute "return 1 + 1;"
+    Driver.post_execute "history.go(-1)"
+    Driver.post_execute "return 1 + 1;"
+    Driver.get_title
+    Driver.post_execute "history.go(+1)"
+    # Driver.get_title
+    Driver.post_execute "history.go(-1)"
+    # Driver.get_title
+    Driver.post_execute "history.go(+1)"
+    Driver.get_title
+    Driver.get_url
+    Driver.get_screenshot
+  end
+end
+
+def custom_app
+  @build = "custom app"
+  @browser = "android"
+  @os_version = "5.0"
+  @device = ARGV[2] || "Google Nexus 6"
+  # @platform = "android"
+  # @caps["deviceOrientation"] = "landscape"
+  # @version = "4.4"
+  @real_mobile = true
+  @browserName = "android"
+  # @caps["app"] = "https://browserstack-user-apps.s3.amazonaws.com/76a67cb1163a8226178ea05724ad1984fa6551a1dd946fe45a6864629cfa7bd0/76a67cb1163a8226178ea05724ad1984fa6551a1dd946fe45a6864629cfa7bd0.apk?AWSAccessKeyId=AKIAJ5JURHMY7PWPTDLA&Expires=1474631224&Signature=s4oIyTrV5DqqZkcSjcIZ49%2FlRgg%3D"
+  @caps["app"] = "https://github.com/browserstack/BStackAutomation/raw/master/app_testing_adb/ApiDemos-debug.apk"
+  #@caps["app"] = "app_url"
+  @platform = "ANY"
+  
+  run_test true do
+    @driver.save_screenshot "test.png"
+  end
+end
+
+def popups
+  @build = "popups"
+  get_options
+  # @caps["browserstack.safari.driver"] = "2.48"
+  @caps["chromeOptions"] = {"excludeSwitches": ["disable-popup-blocking"]}
+  # @caps["chromeOptions"] = {"prefs": {"profile": {"default_content_setting_values": {"popups": 2}}}}
+  
+  run_test do
+    Driver.post_url "https://www.whatismybrowser.com/detect/are-popups-allowed"
+    Driver.get_title
+    Driver.get_screenshot
+
+    Driver.post_url "http://www.popuptest.com/popuptest1.html"
+    Driver.get_title
+    Driver.get_screenshot
+  end
+end
+
+def stypi_title
+  @build = "stypi title"
+  get_options
+  run_test do
+    Driver.post_url("http://google.com")
+    start = Time.now.to_i
+    @stypi.times do
+      Driver.get_title
+      sleep 1
+    end
+    puts "TIME: #{Time.now.to_i - start} seconds"
+    Driver.get_screenshot
+  end
+end
+
+def stypi_title_real
+  @build = "stypi title"
+  @browser = ARGV[2] || "iPhone"
+  @device = ARGV[3] || "iPhone 6S"
+  @machine = ARGV[4]
+  @platform = "ANY"
+  @caps["realMobile"] = true
+  @debug = false
+
+  run_test do
+    Driver.post_url("http://google.com")
+    start = Time.now.to_i
+    @stypi.times do
+      Driver.get_title
+      sleep 1
+    end
+    puts "TIME: #{Time.now.to_i - start} seconds"
+    Driver.get_screenshot
+  end
+end
+
+
+def prod_issue
+  @build = "prod issue"
+  @browser = ARGV[2] || "ipad"
+  # @device = ARGV[3] || ""
+  @os = "ios"
+  @platform = "ANY"
+  @caps["realMobile"] = true
+
+  run_test do
+    Driver.post_url("http://google.com")
+    Driver.get_title
+    Driver.get_screenshot
+    # Driver.post_url "http://alpha:fivetwenty@staging.repairpal.com/r/Dodge/Sprinter+2500/2006/s?utm_source=Spotbot%20Crawler&utm_medium=spotbot.qa&utm_campaign=A%20humble%20robot%2C%20doing%20its%20robot%20duties"
+    # Driver.get_title
+    # Driver.get_screenshot
+    # Driver.post_url("https://www.browserstack.com/admin/terminals")
+    # Driver.get_title
+    # Driver.get_screenshot
+  end
+end
+
 
 Parallel.map([*1..@parallel], :in_processes => @parallel) do |id|
   sleep id*(ENV["D"] || 0).to_i
